@@ -97,7 +97,7 @@ PreviewWidget::PreviewWidget(QFile &preview_file,
 	_bg_colors.resize(tile_count, 0);
 
 	auto context_menu = new QMenu(this);
-	if (_use_colors) {
+	if (_use_colors && palettes.size() > 1) {
 		auto palette_menu = context_menu->addMenu(tr("Palettes"));
 		for (const auto &p: palettes) {
 			auto action = palette_menu->addAction(p.second.makePreview(), p.first);
@@ -107,31 +107,37 @@ PreviewWidget::PreviewWidget(QFile &preview_file,
 			});
 		}
 	}
-	auto background_menu = context_menu->addMenu(tr("Backgrounds"));
-	for (const auto &p: backgrounds) {
-		QPixmap icon(16, 16);
-		icon.fill(p.second);
-		auto action = background_menu->addAction(icon, p.first);
-		connect(action, &QAction::triggered, [this, color = p.second] () {
-			_background = color;
-			update();
-		});
+	if (backgrounds.size() > 1) {
+		auto background_menu = context_menu->addMenu(tr("Backgrounds"));
+		for (const auto &p: backgrounds) {
+			QPixmap icon(16, 16);
+			icon.fill(p.second);
+			auto action = background_menu->addAction(icon, p.first);
+			connect(action, &QAction::triggered, [this, color = p.second] () {
+				_background = color;
+				update();
+			});
+		}
 	}
-	auto outline_menu = context_menu->addMenu(tr("Outlines"));
-	for (const auto &p: outlines) {
-		QPixmap icon(16, 16);
-		icon.fill(p.second);
-		auto action = outline_menu->addAction(icon, p.first);
-		connect(action, &QAction::triggered, [this, color = p.second] () {
-			_outline = color;
-			buildHighlight();
-		});
+	if (outlines.size() > 1) {
+		auto outline_menu = context_menu->addMenu(tr("Outlines"));
+		for (const auto &p: outlines) {
+			QPixmap icon(16, 16);
+			icon.fill(p.second);
+			auto action = outline_menu->addAction(icon, p.first);
+			connect(action, &QAction::triggered, [this, color = p.second] () {
+				_outline = color;
+				buildHighlight();
+			});
+		}
 	}
-	connect(this, &QWidget::customContextMenuRequested,
-	        [this, context_menu] (const QPoint &pos) {
-		context_menu->popup(mapToGlobal(pos));
-	});
-	setContextMenuPolicy(Qt::CustomContextMenu);
+	if (!context_menu->isEmpty()) {
+		connect(this, &QWidget::customContextMenuRequested,
+		        [this, context_menu] (const QPoint &pos) {
+			context_menu->popup(mapToGlobal(pos));
+		});
+		setContextMenuPolicy(Qt::CustomContextMenu);
+	}
 }
 
 PreviewWidget::~PreviewWidget()
