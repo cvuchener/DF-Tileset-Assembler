@@ -27,13 +27,13 @@
 class Tileset;
 class TileSubset;
 
-class QFile;
+class QIODevice;
 
 class PreviewWidget : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit PreviewWidget(QFile &preview_file,
+	explicit PreviewWidget(QIODevice *preview_file,
 	                       const std::vector<std::pair<QString, Palette>> &palettes,
 	                       const std::vector<std::pair<QString, QColor>> &backgrounds,
 	                       const std::vector<std::pair<QString, QColor>> &outlines,

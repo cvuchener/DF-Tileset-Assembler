@@ -30,7 +30,7 @@ class Palette
 	Q_DECLARE_TR_FUNCTIONS(Palette)
 public:
 	Palette() = default;
-	Palette(QFile &colors);
+	Palette(QIODevice *colors);
 
 	QPixmap makePreview() const;
 

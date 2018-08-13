@@ -27,7 +27,7 @@
 
 #include <QtDebug>
 
-PreviewWidget::PreviewWidget(QFile &preview_file,
+PreviewWidget::PreviewWidget(QIODevice *preview_file,
                              const std::vector<std::pair<QString, Palette>> &palettes,
                              const std::vector<std::pair<QString, QColor>> &backgrounds,
                              const std::vector<std::pair<QString, QColor>> &outlines,

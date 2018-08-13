@@ -17,14 +17,16 @@
 #ifndef FILE_LINE_READER_H
 #define FILE_LINE_READER_H
 
-#include <QFile>
+#include <QTextStream>
 
 #include "ParseError.h"
+
+class QIODevice;
 
 class FileLineReader
 {
 public:
-	FileLineReader(QFile &file);
+	FileLineReader(QIODevice *file);
 
 	QString nextLine();
 	int currentLineNumber() const;
@@ -33,7 +35,7 @@ public:
 	ParseError parseError(const QString &message) const;
 
 private:
-	QFile &_file;
+	QTextStream _stream;
 	int _current_line;
 };
 

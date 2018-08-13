@@ -16,20 +16,21 @@
  */
 #include "FileLineReader.h"
 
-FileLineReader::FileLineReader(QFile &file)
-        : _file(file)
+#include <QFile>
+
+FileLineReader::FileLineReader(QIODevice *file)
+        : _stream(file)
         , _current_line(0)
 {
-
+	_stream.setCodec("UTF-8");
+	_stream.setAutoDetectUnicode(true);
 }
 
 QString FileLineReader::nextLine()
 {
-	auto line = _file.readLine();
+	auto line = _stream.readLine();
 	++_current_line;
-	while (!line.isEmpty() && (line.back() == '\n' || line.back() == '\r'))
-		line.remove(line.count()-1, 1);
-	return QString::fromUtf8(line);
+	return line;
 }
 
 int FileLineReader::currentLineNumber() const
@@ -39,18 +40,20 @@ int FileLineReader::currentLineNumber() const
 
 FileLineReader::operator bool() const
 {
-	return !_file.atEnd();
+	return !_stream.atEnd();
 }
 
 QString FileLineReader::formatError(const QString &message) const
 {
+	auto file = dynamic_cast<const QFile *>(_stream.device());
 	return QString("%1:%2: %3")
-	                .arg(_file.fileName())
+	                .arg(file ? file->fileName() : QString())
 	                .arg(_current_line)
 	                .arg(message);
 }
 
 ParseError FileLineReader::parseError(const QString &message) const
 {
-	return ParseError(_file.fileName(), _current_line, message);
+	auto file = dynamic_cast<const QFile *>(_stream.device());
+	return ParseError(file ? file->fileName() : QString(), _current_line, message);
 }

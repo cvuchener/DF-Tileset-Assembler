@@ -16,6 +16,7 @@
  */
 #include "Tileset.h"
 
+#include <QFile>
 #include <QPainter>
 
 #include "FileLineReader.h"
@@ -65,7 +66,7 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 			qCritical().noquote() << tr("Failed to open \"%1\".").arg(layer_file.fileName());
 			continue;
 		}
-		FileLineReader reader(layer_file);
+		FileLineReader reader(&layer_file);
 		try {
 			layer.tiles = TileSubset::fromString(reader.nextLine());
 		}

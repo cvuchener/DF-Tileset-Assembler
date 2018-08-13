@@ -88,7 +88,7 @@ MainWindow::MainWindow(QWidget *parent)
 			qCritical().noquote() << tr("Cannot open palette: %1").arg(file.fileName());
 			continue;
 		}
-		_palettes.emplace_back(name, file);
+		_palettes.emplace_back(name, &file);
 	}
 	settings.endArray();
 	if (_palettes.empty())
@@ -127,7 +127,7 @@ MainWindow::MainWindow(QWidget *parent)
 			continue;
 		}
 		try {
-			auto preview = new PreviewWidget(file, _palettes, _backgrounds, _outlines);
+			auto preview = new PreviewWidget(&file, _palettes, _backgrounds, _outlines);
 			preview->setTileset(_tileset.get());
 			preview->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 			connect(conf_widget, &ConfigurationWidget::highlightTiles, preview, &PreviewWidget::setHighlight);
