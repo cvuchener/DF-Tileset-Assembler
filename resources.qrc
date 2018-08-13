@@ -1,9 +1,9 @@
 <RCC>
     <qresource prefix="/img">
-        <file alias="application-exit">img/48px-Gnome-application-exit.svg.png</file>
-        <file alias="document-save">img/48px-Gnome-document-save.svg.png</file>
-        <file alias="document-save-as">img/48px-Gnome-document-save-as.svg.png</file>
         <file alias="error">img/Gnome-dialog-error.svg</file>
         <file alias="warning">img/Gnome-dialog-warning.svg</file>
+        <file alias="application-exit">img/Gnome-application-exit.svg</file>
+        <file alias="document-save">img/Gnome-document-save.svg</file>
+        <file alias="document-save-as">img/Gnome-document-save-as.svg</file>
     </qresource>
 </RCC>
