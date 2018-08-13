@@ -42,7 +42,15 @@ FileLineReader::operator bool() const
 	return !_file.atEnd();
 }
 
-ParseError FileLineReader::parseError(const QString &message)
+QString FileLineReader::formatError(const QString &message) const
+{
+	return QString("%1:%2: %3")
+	                .arg(_file.fileName())
+	                .arg(_current_line)
+	                .arg(message);
+}
+
+ParseError FileLineReader::parseError(const QString &message) const
 {
 	return ParseError(_file.fileName(), _current_line, message);
 }

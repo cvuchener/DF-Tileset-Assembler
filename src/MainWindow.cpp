@@ -15,12 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "MainWindow.h"
+#include "LogWindow.h"
 
 #include <QFile>
 #include <QFileDialog>
 #include <QHBoxLayout>
+#include <QPushButton>
 #include <QMessageBox>
 #include <QTableWidget>
+
+#include <QtDebug>
 
 #include "ConfigurationWidget.h"
 #include "PreviewWidget.h"
@@ -31,6 +35,31 @@ MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent)
 {
 	setupUi(this);
+
+	auto log_button = new QPushButton(this);
+	log_button->setHidden(true);
+	status_bar->addPermanentWidget(log_button);
+
+	connect(LogWindow::instance(), &LogWindow::errorCountChanged,
+	        [log_button] (unsigned int error_count, unsigned int warning_count) {
+		QStringList counts;
+		if (error_count > 0)
+			counts.append(tr("%1 error(s)", "",
+			                 static_cast<int>(error_count))
+			              .arg(error_count));
+		if (warning_count > 0)
+			counts.append(tr("%1 warning(s)", "",
+			                 static_cast<int>(warning_count))
+			              .arg(warning_count));
+		log_button->setText(counts.join(", "));
+		if (error_count + warning_count > 0)
+			log_button->setHidden(false);
+	});
+	connect(log_button, &QPushButton::clicked, [] () {
+		LogWindow::instance()->show();
+		LogWindow::instance()->raise();
+	});
+
 	auto layout = new QHBoxLayout(central_widget);
 
 	QSettings settings("./tileset-assembler.ini", QSettings::IniFormat);
@@ -42,17 +71,11 @@ MainWindow::MainWindow(QWidget *parent)
 		_tileset = std::make_unique<Tileset>(settings);
 	}
 	catch (std::exception &e) {
-		QMessageBox::critical(this, tr("Tileset Error"), e.what());
+		qCritical().noquote() << tr("Cannot create tileset: %1").arg(e.what());
 	}
 	settings.endGroup();
 
-	ConfigurationWidget *conf_widget = nullptr;
-	try {
-		conf_widget = new ConfigurationWidget(settings, _tileset.get(), central_widget);
-	}
-	catch (std::exception &e) {
-		QMessageBox::critical(this, tr("Configuration Error"), e.what());
-	}
+	auto conf_widget = new ConfigurationWidget(settings, _tileset.get(), central_widget);
 	layout->addWidget(conf_widget);
 
 	settings.beginGroup("colors");
@@ -62,7 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
 		auto name = settings.value("name", tr("Unnamed palette")).toString();
 		QFile file(settings.value("file").toString());
 		if (!file.open(QIODevice::ReadOnly)) {
-			QMessageBox::critical(this, tr("Palette Error"), tr("Cannot open file: %1").arg(file.fileName()));
+			qCritical().noquote() << tr("Cannot open palette: %1").arg(file.fileName());
 			continue;
 		}
 		_palettes.emplace_back(name, file);
@@ -97,19 +120,25 @@ MainWindow::MainWindow(QWidget *parent)
 	int preview_count = settings.beginReadArray("previews");
 	for (int i = 0; i < preview_count; ++i) {
 		settings.setArrayIndex(i);
+		auto name = settings.value("name", tr("Unnamed Preview")).toString();
 		QFile file(settings.value("file").toString());
-		if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-			QMessageBox::critical(this, tr("Previews Error"), tr("Failed to open file: %1").arg(file.fileName()));
+		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+			qCritical().noquote() << tr("Failed to open preview file: %1").arg(file.fileName());
+			continue;
+		}
 		try {
 			auto preview = new PreviewWidget(file, _palettes, _backgrounds, _outlines);
 			preview->setTileset(_tileset.get());
 			preview->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 			connect(conf_widget, &ConfigurationWidget::highlightTiles, preview, &PreviewWidget::setHighlight);
 			connect(conf_widget, &ConfigurationWidget::clearHighlightedTiles, preview, &PreviewWidget::clearHighlight);
-			tabs->addTab(preview, settings.value("name", tr("Unnamed Preview")).toString());
+			tabs->addTab(preview, name);
 		}
 		catch (std::exception &e) {
-			QMessageBox::critical(this, tr("Preview Error"), tr("Failed to parse %1: %2").arg(file.fileName()).arg(e.what()));
+			qCritical().noquote() << tr("Cannot create preview %1 from %2: %3")
+			               .arg(name)
+			               .arg(file.fileName())
+			               .arg(e.what());
 		}
 		file.close();
 	}
@@ -156,4 +185,10 @@ void MainWindow::on_save_as_action_triggered()
 		if (!_tileset->tileset().save(output))
 			QMessageBox::critical(this, tr("Save Error"), tr("Failed to save tileset."));
 	}
+}
+
+void MainWindow::closeEvent(QCloseEvent *e)
+{
+	QMainWindow::closeEvent(e);
+	QApplication::instance()->quit();
 }

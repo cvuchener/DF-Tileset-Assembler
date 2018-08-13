@@ -15,11 +15,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "MainWindow.h"
+#include "LogWindow.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
+
+	qInstallMessageHandler(LogWindow::handleMessage);
+
 	MainWindow window;
 	window.show();
 

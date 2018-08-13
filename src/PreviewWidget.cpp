@@ -76,18 +76,21 @@ PreviewWidget::PreviewWidget(QFile &preview_file,
 						color = static_cast<uint8_t>(code - 'a' + 10);
 					else if (code >= 'A' && code <= 'F')
 						color = static_cast<uint8_t>(code - 'A' + 10);
-					else
-						throw reader.parseError(tr("Invalid color: %1").arg(c));
+					else {
+						qCritical().noquote() << reader.formatError(tr("Invalid color: %1").arg(c));
+						continue;
+					}
 					colors.push_back(color);
 				}
 			}
 		}
 		else if (line == "nocoloring") {
-			qDebug() << "option nocoloring";
 			_use_colors = false;
 		}
-		else
-			throw reader.parseError(tr("Invalid keyword: %1").arg(line));
+		else {
+			qCritical().noquote() << reader.formatError(tr("Invalid keyword: %1").arg(line));
+			continue;
+		}
 	}
 	_tiles.resize(tile_count, 0);
 	_fg_colors.resize(tile_count, 15);

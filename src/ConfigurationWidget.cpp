@@ -36,8 +36,10 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, Tileset *tileset, QWidget
 		s.setArrayIndex(i);
 		auto name = s.value("name", tr("Unnamed setting")).toString();
 		auto layer_index = s.value("layer").toUInt(&ok) - 1;
-		if (!ok || layer_index >= tileset->layers().size())
-			throw std::runtime_error(tr("Invalid layer index in %1").arg(s.group()).toLocal8Bit().data());
+		if (!ok || layer_index >= tileset->layers().size()) {
+			qCritical().noquote() << tr("Invalid layer index in %1").arg(s.group());
+			continue;
+		}
 		const auto &layer = tileset->layers()[layer_index];
 		auto label = new QLabel(name, this);
 		auto combobox = new LayerComboBox(layer, this);

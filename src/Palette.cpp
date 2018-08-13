@@ -17,6 +17,7 @@
 #include "Palette.h"
 
 #include <QPainter>
+#include <QtDebug>
 
 #include "FileLineReader.h"
 
@@ -52,22 +53,32 @@ Palette::Palette(QFile &colors_file)
 		if (line.front() != '[')
 			continue; // ignore non token lines
 		int end = line.indexOf(']');
-		if (end == -1)
-			throw reader.parseError(tr("Tocken is not closed"));
+		if (end == -1) {
+			qCritical().noquote() << reader.formatError(tr("Tocken is not closed"));
+			continue;
+		}
 		auto values = line.midRef(1, end-1).split(':');
-		if (values.count() != 2)
-			throw reader.parseError(tr("Invalid parameter count"));
+		if (values.count() != 2) {
+			qCritical().noquote() << reader.formatError(tr("Invalid parameter count"));
+			continue;
+		}
 		int sep = values[0].indexOf('_');
 		auto color_it = Colors.find(values[0].mid(0, sep));
-		if (color_it == Colors.end())
-			throw reader.parseError(tr("Invalid color name"));
+		if (color_it == Colors.end()) {
+			qCritical().noquote() << reader.formatError(tr("Invalid color name"));
+			continue;
+		}
 		auto channel_it = Channels.find(values[0].mid(sep+1));
-		if (channel_it == Channels.end())
-			throw reader.parseError(tr("Invalid channel name"));
+		if (channel_it == Channels.end()) {
+			qCritical().noquote() << reader.formatError(tr("Invalid channel name"));
+			continue;
+		}
 		bool ok;
 		auto value = values[1].toInt(&ok);
-		if (!ok || value < 0 || value > 255)
-			throw reader.parseError(tr("Invalid channel value"));
+		if (!ok || value < 0 || value > 255) {
+			qCritical().noquote() << reader.formatError(tr("Invalid channel value"));
+			continue;
+		}
 		(colors[color_it->second].*channel_it->second)(value);
 	}
 }

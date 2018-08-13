@@ -29,7 +29,8 @@ public:
 	QString nextLine();
 	int currentLineNumber() const;
 	operator bool() const;
-	ParseError parseError(const QString &message);
+	QString formatError(const QString &message) const;
+	ParseError parseError(const QString &message) const;
 
 private:
 	QFile &_file;

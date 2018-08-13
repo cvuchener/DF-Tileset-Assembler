@@ -14,38 +14,37 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MAIN_WINDOW_H
-#define MAIN_WINDOW_H
+#ifndef LOG_WINDOW_H
+#define LOG_WINDOW_H
 
-#include "ui_MainWindow.h"
+#include <QWidget>
 
-#include <memory>
+#include "ui_LogWindow.h"
 
-#include "Palette.h"
-
-class Tileset;
-
-class MainWindow : public QMainWindow, private Ui::MainWindow
+class LogWindow: public QWidget, private Ui::LogWindow
 {
 	Q_OBJECT
 public:
-	explicit MainWindow(QWidget *parent = nullptr);
-	~MainWindow() override;
+	explicit LogWindow(QWidget *parent = nullptr);
+
+	static LogWindow *instance();
+	static void handleMessage(QtMsgType, const QMessageLogContext &, const QString &);
+
+	unsigned int warningCount() const;
+	unsigned int errorCount() const;
+
+signals:
+	void errorCountChanged(unsigned int errors, unsigned int warnings);
 
 public slots:
-	void on_save_action_triggered();
-	void on_save_as_action_triggered();
-
-protected:
-	void closeEvent(QCloseEvent *) override;
 
 private:
-	std::unique_ptr<Tileset> _tileset;
-	QString _output;
-	std::vector<std::pair<QString, Palette>> _palettes;
-	std::vector<std::pair<QString, QColor>> _backgrounds;
-	std::vector<std::pair<QString, QColor>> _outlines;
+	static LogWindow *_window;
 
+	void addMessage(QtMsgType, const QMessageLogContext &, const QString &);
+
+	unsigned int _warning_count;
+	unsigned int _error_count;
 };
 
-#endif // MAIN_WINDOW_H
+#endif // LOG_WINDOW_H

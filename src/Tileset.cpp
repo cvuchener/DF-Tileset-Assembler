@@ -61,14 +61,16 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 		s.setArrayIndex(static_cast<int>(i));
 		auto &layer = _layers[i];
 		QFile layer_file(s.value("file").toString());
-		if (!layer_file.open(QIODevice::ReadOnly))
-			throw std::runtime_error(tr("Failed to open \"%1\".").arg(layer_file.fileName()).toLocal8Bit().data());
+		if (!layer_file.open(QIODevice::ReadOnly)) {
+			qCritical().noquote() << tr("Failed to open \"%1\".").arg(layer_file.fileName());
+			continue;
+		}
 		FileLineReader reader(layer_file);
 		try {
 			layer.tiles = TileSubset::fromString(reader.nextLine());
 		}
 		catch (std::exception &e) {
-			throw reader.parseError(tr("Invalid tile list: %1").arg(e.what()));
+			qCritical().noquote() << reader.formatError(tr("Invalid tile list: %1").arg(e.what()));
 		}
 		unsigned int first_tile = 0;
 		while (first_tile < 256 && !layer.tiles.tiles()[first_tile])
@@ -85,50 +87,59 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 				alternative->icon_source = 0;
 			}
 			else if (params[0] == "source") {
-				if (!alternative)
-					throw reader.parseError(tr("\"source\" must be after an alternative"));
+				if (!alternative) {
+					qCritical().noquote() << reader.formatError(tr("\"source\" must be after an alternative"));
+					continue;
+				}
 				auto filename = params.value(1);
 				auto it = _input_tiles.lower_bound(filename);
 				if (it == _input_tiles.end() || it->first != filename) {
-					qDebug() << "Loading" << filename;
+					qDebug().noquote() << tr("Loading %1").arg(filename);
 					it = _input_tiles.emplace_hint(it, filename.toString(), QPixmap());
 					if (!it->second.load(filename.toString()))
-						throw reader.parseError(tr("Cannot load source image from %1.").arg(filename));
+						qCritical().noquote() << reader.formatError(tr("Cannot load source image from %1.").arg(filename));
 				}
 				auto mode = QPainter::CompositionMode_Source;
 				if (params.count() >= 3) {
 					auto mode_it = Modes.find(params[2]);
 					if (mode_it == Modes.end())
-						throw reader.parseError(tr("Invalid composition mode: %1").arg(params[2]));
-					mode = mode_it->second;
+						qCritical().noquote() << reader.formatError(tr("Invalid composition mode: %1").arg(params[2]));
+					else
+						mode = mode_it->second;
 				}
 				alternative->sources.emplace_back(&it->second, mode);
 			}
 			else if (params[0] == "icon") {
-				if (!alternative)
-					throw reader.parseError(tr("\"icon\" must be after an alternative"));
+				if (!alternative) {
+					qCritical().noquote() << reader.formatError(tr("\"icon\" must be after an alternative"));
+					continue;
+				}
 				bool ok;
 				if (params.count() >= 2) {
 					alternative->icon_tile = params[1].toUInt(&ok);
 					if (!ok || alternative->icon_tile > 255)
-						throw reader.parseError(tr("Invalid icon tile number"));
+						qCritical().noquote() << reader.formatError(tr("Invalid icon tile number"));
 				}
 				if (params.count() >= 3) {
 					alternative->icon_source = params[2].toUInt(&ok);
 					if (!ok || alternative->icon_source >= alternative->sources.size())
-						throw reader.parseError(tr("Invalid icon source index"));
+						qCritical().noquote() << reader.formatError(tr("Invalid icon source index"));
 				}
 			}
 			else {
-				throw reader.parseError(tr("Invalid tilset option: %1").arg(params[0]));
+				qCritical().noquote() << reader.formatError(tr("Invalid tilset option: %1").arg(params[0]));
 			}
 
 		}
-		if (layer.alternatives.empty())
-			throw reader.parseError(tr("no alternative found"));
 		layer.current = 0;
 	}
 	s.endArray();
+
+	for (unsigned int i = 0; i < _layers.size(); ++i) {
+		const auto &layer = _layers[i];
+		if (layer.alternatives.empty())
+			throw std::runtime_error(tr("Layer %1 has no alternative.").arg(i).toLocal8Bit().data());
+	}
 
 	buildTileset();
 }

@@ -3,5 +3,7 @@
         <file alias="application-exit">img/48px-Gnome-application-exit.svg.png</file>
         <file alias="document-save">img/48px-Gnome-document-save.svg.png</file>
         <file alias="document-save-as">img/48px-Gnome-document-save-as.svg.png</file>
+        <file alias="error">img/Gnome-dialog-error.svg</file>
+        <file alias="warning">img/Gnome-dialog-warning.svg</file>
     </qresource>
 </RCC>
