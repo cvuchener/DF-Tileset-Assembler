@@ -32,7 +32,6 @@
     <bool>false</bool>
    </attribute>
    <addaction name="save_action"/>
-   <addaction name="save_as_action"/>
    <addaction name="quit_action"/>
   </widget>
   <widget class="QStatusBar" name="status_bar"/>

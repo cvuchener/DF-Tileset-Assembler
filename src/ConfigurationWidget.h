@@ -28,10 +28,10 @@ class ConfigurationWidget: public QWidget
 {
 	Q_OBJECT
 public:
-	explicit ConfigurationWidget(QSettings &s, Tileset *tileset, QWidget *parent = nullptr);
+	explicit ConfigurationWidget(QSettings &s, const std::vector<Tileset *> &tilesets, QWidget *parent = nullptr);
 
 signals:
-	void highlightTiles(const TileSubset &tiles);
+	void highlightTiles(unsigned int tileset_index, const TileSubset &tiles);
 	void clearHighlightedTiles();
 
 public slots:

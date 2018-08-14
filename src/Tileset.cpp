@@ -53,6 +53,9 @@ static const std::map<QString, QPainter::CompositionMode, std::less<>> Modes = {
 Tileset::Tileset(QSettings &s, QObject *parent)
         : QObject(parent)
 {
+	_output = s.value("output").toString();
+	if (_output.isEmpty())
+		qCritical().noquote() << tr("Missing output path in %1").arg(s.group());
 	_info.setTileWidth(s.value("tile_width").toInt());
 	_info.setTileHeight(s.value("tile_height").toInt());
 	_tileset = QPixmap(_info.pixmapSize());
@@ -132,15 +135,13 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 			}
 
 		}
+		if (layer.alternatives.empty()) {
+			qCritical().noquote() << tr("Layer %1 has no alternative.").arg(i);
+			layer.alternatives.emplace_back(); // add an empty alternative so current can be a valid index
+		}
 		layer.current = 0;
 	}
 	s.endArray();
-
-	for (unsigned int i = 0; i < _layers.size(); ++i) {
-		const auto &layer = _layers[i];
-		if (layer.alternatives.empty())
-			throw std::runtime_error(tr("Layer %1 has no alternative.").arg(i).toLocal8Bit().data());
-	}
 
 	buildTileset();
 }
@@ -169,6 +170,11 @@ const QPixmap &Tileset::tileset() const
 const TilemapInfo &Tileset::tilesetInfo() const
 {
 	return _info;
+}
+
+const QString &Tileset::output() const
+{
+	return _output;
 }
 
 void Tileset::buildTileset()

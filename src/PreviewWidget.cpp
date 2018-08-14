@@ -27,18 +27,27 @@
 
 #include <QtDebug>
 
-PreviewWidget::PreviewWidget(QIODevice *preview_file,
+PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
+                             QIODevice *preview_file,
                              const std::vector<std::pair<QString, Palette>> &palettes,
                              const std::vector<std::pair<QString, QColor>> &backgrounds,
                              const std::vector<std::pair<QString, QColor>> &outlines,
                              QWidget *parent)
         : QWidget(parent)
-        , _tileset(nullptr)
+        , _tilesets(tilesets)
         , _background(backgrounds.front().second)
         , _outline(outlines.front().second)
         , _use_colors(true)
         , _palette(&palettes.front().second)
 {
+	// Init tilesets info
+	if (_tilesets.empty())
+		throw std::runtime_error(tr("Empty tileset list").toLocal8Bit().data());
+	_info.setTileSize(_tilesets[0]->tilesetInfo().tileSize());
+	for (auto tileset: _tilesets)
+		connect(tileset, &Tileset::tilesetUpdated, this, &PreviewWidget::buildPreview);
+
+	// Read preview file
 	bool ok;
 	FileLineReader reader(preview_file);
 	auto first_line = reader.nextLine();
@@ -54,7 +63,10 @@ PreviewWidget::PreviewWidget(QIODevice *preview_file,
 	auto tile_count = _info.tileCount();
 	while (reader) {
 		auto line = reader.nextLine();
-		if (line == "tiles") {
+		auto params = line.splitRef(':');
+		if (params[0] == "tiles") {
+			if (params.size() > 1)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
 			for (int i = 0; i < _info.tilemapHeight(); ++i) {
 				auto line = reader.nextLine();
 				line.resize(_info.tilemapWidth());
@@ -62,7 +74,9 @@ PreviewWidget::PreviewWidget(QIODevice *preview_file,
 					_tiles.push_back(CP437::fromUnicode(c.unicode()));
 			}
 		}
-		else if (line == "foreground" || line == "background") {
+		else if (params[0] == "foreground" || params[0] == "background") {
+			if (params.size() > 1)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
 			auto &colors = line == "foreground" ? _fg_colors : _bg_colors;
 			for (int i = 0; i < _info.tilemapHeight(); ++i) {
 				auto line = reader.nextLine();
@@ -84,7 +98,77 @@ PreviewWidget::PreviewWidget(QIODevice *preview_file,
 				}
 			}
 		}
+		else if (params[0] == "tilesets") {
+			if (params.size() > 1)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			for (int i = 0; i < _info.tilemapHeight(); ++i) {
+				auto line = reader.nextLine();
+				line.resize(_info.tilemapWidth());
+				for (auto c: line) {
+					auto code = c.unicode();
+					unsigned int index = 0;
+					if (code >= '0' && code <= '9')
+						index = static_cast<unsigned int>(code - '0');
+					else if (code >= 'a' && code <= 'z')
+						index = static_cast<unsigned int>(code - 'a' + 10);
+					else if (code >= 'A' && code <= 'Z')
+						index = static_cast<unsigned int>(code - 'A' + 10);
+					else {
+						qCritical().noquote() << reader.formatError(tr("invalid character: %1").arg(c));
+						continue;
+					}
+					if (index >= _tilesets.size()) {
+						qCritical().noquote() << reader.formatError(tr("Tileset index too high"));
+						continue;
+					}
+					_source_tilesets.push_back(index);
+				}
+			}
+		}
+		else if (params[0] == "tilesizefrom") {
+			if (params.size() > 2)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			if (params.size() < 2) {
+				qCritical().noquote() << reader.formatError(tr("Missing tileset index"));
+				continue;
+			}
+			bool ok;
+			unsigned int index = params[1].toUInt(&ok);
+			if (!ok || index >= _tilesets.size()) {
+				qCritical().noquote() << reader.formatError(tr("Invalid tileset index"));
+				continue;
+			}
+			_info.setTileSize(_tilesets[index]->tilesetInfo().tileSize());
+		}
+		else if (params[0] == "tilesize") {
+			if (params.size() > 3)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			if (params.size() < 2) {
+				qCritical().noquote() << reader.formatError(tr("Missing tile size"));
+				continue;
+			}
+			bool ok;
+			int width = params[1].toInt(&ok);
+			if (!ok || width <= 0) {
+				qCritical().noquote() << reader.formatError(tr("Invalid tile width"));
+				continue;
+			}
+			_info.setTileWidth(width);
+			if (params.size() >= 3) {
+				int height = params[2].toInt(&ok);
+				if (!ok || height <= 0) {
+					qCritical().noquote() << reader.formatError(tr("Invalid tile height"));
+					continue;
+				}
+				_info.setTileHeight(height);
+			}
+			else
+				_info.setTileHeight(width);
+
+		}
 		else if (line == "nocoloring") {
+			if (params.size() > 1)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
 			_use_colors = false;
 		}
 		else {
@@ -93,9 +177,11 @@ PreviewWidget::PreviewWidget(QIODevice *preview_file,
 		}
 	}
 	_tiles.resize(tile_count, 0);
+	_source_tilesets.resize(tile_count, 0);
 	_fg_colors.resize(tile_count, 15);
 	_bg_colors.resize(tile_count, 0);
 
+	// Setup context menu
 	auto context_menu = new QMenu(this);
 	if (_use_colors && palettes.size() > 1) {
 		auto palette_menu = context_menu->addMenu(tr("Palettes"));
@@ -138,6 +224,8 @@ PreviewWidget::PreviewWidget(QIODevice *preview_file,
 		});
 		setContextMenuPolicy(Qt::CustomContextMenu);
 	}
+
+	buildPreview();
 }
 
 PreviewWidget::~PreviewWidget()
@@ -149,19 +237,9 @@ QSize PreviewWidget::sizeHint() const
 	return _info.pixmapSize() + QSize(2, 2); // reserve space for borders
 }
 
-void PreviewWidget::setTileset(const Tileset *tileset)
+void PreviewWidget::setHighlight(unsigned int tileset_index, const TileSubset &subset)
 {
-	if (_tileset)
-		disconnect(_tileset, nullptr, this, nullptr);
-	_tileset = tileset;
-	_info.setTileSize(_tileset->tilesetInfo().tileSize());
-	updateGeometry();
-	connect(_tileset, &Tileset::tilesetUpdated, this, &PreviewWidget::buildPreview);
-	buildPreview();
-}
-
-void PreviewWidget::setHighlight(const TileSubset &subset)
-{
+	_highlighted_tileset = tileset_index;
 	_highlighted_tiles = std::make_unique<TileSubset>(subset);
 	buildHighlight();
 }
@@ -200,14 +278,12 @@ void PreviewWidget::paintEvent(QPaintEvent *event)
 
 void PreviewWidget::buildPreview()
 {
-	if (!_tileset)
-		return;
-	const auto &tileset = _tileset->tileset();
-	TilemapInfo tileset_info(tileset);
 	_preview = QPixmap(_info.pixmapSize());
 	_preview.fill(Qt::transparent);
 	QPainter painter(&_preview);
 	for (unsigned int i = 0; i < _info.tileCount(); ++i) {
+		const auto &tileset = _tilesets[_source_tilesets[i]]->tileset();
+		TilemapInfo tileset_info(tileset);
 		uint8_t tile = _tiles[i];
 		auto src_rect = tileset_info.tileRect(tile);
 		auto dest_rect = _info.tileRect(i);
@@ -230,10 +306,8 @@ void PreviewWidget::buildPreview()
 }
 void PreviewWidget::buildHighlight()
 {
-	if (!_tileset || !_highlighted_tiles)
+	if (!_highlighted_tiles)
 		return;
-	const auto &tileset = _tileset->tileset();
-	TilemapInfo tileset_info(tileset);
 	_highlight = QPixmap(_info.pixmapSize() + QSize(2, 2));
 	_highlight.fill(Qt::transparent);
 	{
@@ -241,14 +315,16 @@ void PreviewWidget::buildHighlight()
 		QPainter painter(&_highlight);
 		for (unsigned int i = 0; i < _info.tileCount(); ++i) {
 			uint8_t tile = _tiles[i];
-			if (!_highlighted_tiles->tiles()[tile])
+			unsigned int tileset_index = _source_tilesets[i];
+			if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
 				continue;
 			painter.fillRect(_info.tileRect(i).translated(origin).marginsAdded(QMargins(1, 1, 1, 1)), _outline);
 		}
 		painter.setCompositionMode(QPainter::CompositionMode_Clear);
 		for (unsigned int i = 0; i < _info.tileCount(); ++i) {
 			uint8_t tile = _tiles[i];
-			if (!_highlighted_tiles->tiles()[tile])
+			unsigned int tileset_index = _source_tilesets[i];
+			if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
 				continue;
 			painter.fillRect(_info.tileRect(i).translated(origin), Qt::transparent);
 		}

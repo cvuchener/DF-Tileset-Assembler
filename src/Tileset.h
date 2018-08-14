@@ -49,6 +49,7 @@ public:
 
 	const QPixmap &tileset() const;
 	const TilemapInfo &tilesetInfo() const;
+	const QString &output() const;
 
 signals:
 	void tilesetUpdated();
@@ -60,6 +61,7 @@ private:
 	std::map<QString, QPixmap, std::less<>> _input_tiles;
 	TilemapInfo _info;
 	QPixmap _tileset;
+	QString _output;
 };
 
 #endif // TILESET_H

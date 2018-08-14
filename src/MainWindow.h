@@ -34,14 +34,12 @@ public:
 
 public slots:
 	void on_save_action_triggered();
-	void on_save_as_action_triggered();
 
 protected:
 	void closeEvent(QCloseEvent *) override;
 
 private:
-	std::unique_ptr<Tileset> _tileset;
-	QString _output;
+	std::vector<std::unique_ptr<Tileset>> _tilesets;
 	std::vector<std::pair<QString, Palette>> _palettes;
 	std::vector<std::pair<QString, QColor>> _backgrounds;
 	std::vector<std::pair<QString, QColor>> _outlines;

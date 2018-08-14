@@ -26,7 +26,7 @@
 
 #include <QtDebug>
 
-ConfigurationWidget::ConfigurationWidget(QSettings &s, Tileset *tileset, QWidget *parent)
+ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset *> &tilesets, QWidget *parent)
         : QWidget(parent)
         , _layout(new QFormLayout(this))
 {
@@ -35,6 +35,12 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, Tileset *tileset, QWidget
 	for (int i = 0; i < config_size; ++i) {
 		s.setArrayIndex(i);
 		auto name = s.value("name", tr("Unnamed setting")).toString();
+		auto tileset_index = s.value("tileset", 1).toUInt(&ok) - 1;
+		if (!ok || tileset_index >= tilesets.size()) {
+			qCritical().noquote() << tr("Invalid tileset index in %1").arg(s.group());
+			continue;
+		}
+		auto tileset = tilesets[tileset_index];
 		auto layer_index = s.value("layer").toUInt(&ok) - 1;
 		if (!ok || layer_index >= tileset->layers().size()) {
 			qCritical().noquote() << tr("Invalid layer index in %1").arg(s.group());
@@ -43,8 +49,8 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, Tileset *tileset, QWidget
 		const auto &layer = tileset->layers()[layer_index];
 		auto label = new QLabel(name, this);
 		auto combobox = new LayerComboBox(layer, this);
-		connect(combobox, &LayerComboBox::mouseEnter, [this, &layer] () {
-			emit highlightTiles(layer.tiles);
+		connect(combobox, &LayerComboBox::mouseEnter, [this, tileset_index, &layer] () {
+			emit highlightTiles(tileset_index, layer.tiles);
 		});
 		connect(combobox, &LayerComboBox::mouseLeave, [this] () {
 			emit clearHighlightedTiles();

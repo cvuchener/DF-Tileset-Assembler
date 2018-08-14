@@ -33,7 +33,8 @@ class PreviewWidget : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit PreviewWidget(QIODevice *preview_file,
+	explicit PreviewWidget(const std::vector<const Tileset *> &tilesets,
+	                       QIODevice *preview_file,
 	                       const std::vector<std::pair<QString, Palette>> &palettes,
 	                       const std::vector<std::pair<QString, QColor>> &backgrounds,
 	                       const std::vector<std::pair<QString, QColor>> &outlines,
@@ -42,12 +43,10 @@ public:
 
 	QSize sizeHint() const override;
 
-	void setTileset(const Tileset *tileset);
-
 signals:
 
 public slots:
-	void setHighlight(const TileSubset &subset);
+	void setHighlight(unsigned int tileset_index, const TileSubset &subset);
 	void clearHighlight();
 
 protected:
@@ -57,15 +56,17 @@ private:
 	void buildPreview();
 	void buildHighlight();
 
-	const Tileset *_tileset;
+	std::vector<const Tileset *> _tilesets;
 	QColor _background;
 	QColor _outline;
 	bool _use_colors;
 	const Palette *_palette;
 	TilemapInfo _info;
 	std::vector<uint8_t> _tiles;
+	std::vector<unsigned int> _source_tilesets;
 	std::vector<uint8_t> _fg_colors;
 	std::vector<uint8_t> _bg_colors;
+	unsigned int _highlighted_tileset;
 	std::unique_ptr<TileSubset> _highlighted_tiles;
 	QPixmap _preview;
 	QPixmap _highlight;

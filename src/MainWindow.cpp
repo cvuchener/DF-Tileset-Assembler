@@ -31,6 +31,16 @@
 #include "Tileset.h"
 #include "Palette.h"
 
+template<typename T, typename U>
+static std::vector<T *> ptr_vec(const std::vector<std::unique_ptr<U>> &vec)
+{
+	std::vector<T *> out;
+	out.reserve(vec.size());
+	for (const auto &ptr: vec)
+		out.push_back(ptr.get());
+	return out;
+}
+
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent)
 {
@@ -64,18 +74,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 	QSettings settings("./tileset-assembler.ini", QSettings::IniFormat);
 	setWindowTitle(settings.value("title", tr("Missing title")).toString());
-	_output = settings.value("output", "tileset.png").toString();
 
-	settings.beginGroup("tileset");
-	try {
-		_tileset = std::make_unique<Tileset>(settings);
+	auto tileset_count = settings.beginReadArray("tilesets");
+	for (int i = 0; i < tileset_count; ++i) {
+		settings.setArrayIndex(i);
+		_tilesets.emplace_back(std::make_unique<Tileset>(settings));
 	}
-	catch (std::exception &e) {
-		qCritical().noquote() << tr("Cannot create tileset: %1").arg(e.what());
-	}
-	settings.endGroup();
+	settings.endArray();
 
-	auto conf_widget = new ConfigurationWidget(settings, _tileset.get(), central_widget);
+	auto conf_widget = new ConfigurationWidget(settings, ptr_vec<Tileset>(_tilesets), central_widget);
 	layout->addWidget(conf_widget);
 
 	settings.beginGroup("colors");
@@ -127,8 +134,7 @@ MainWindow::MainWindow(QWidget *parent)
 			continue;
 		}
 		try {
-			auto preview = new PreviewWidget(&file, _palettes, _backgrounds, _outlines);
-			preview->setTileset(_tileset.get());
+			auto preview = new PreviewWidget(ptr_vec<const Tileset>(_tilesets), &file, _palettes, _backgrounds, _outlines);
 			preview->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 			connect(conf_widget, &ConfigurationWidget::highlightTiles, preview, &PreviewWidget::setHighlight);
 			connect(conf_widget, &ConfigurationWidget::clearHighlightedTiles, preview, &PreviewWidget::clearHighlight);
@@ -153,38 +159,80 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_save_action_triggered()
 {
-	if (!_tileset)
-		return;
-	QFileInfo info(_output);
-	if (info.exists() &&
-	    QMessageBox::Yes != QMessageBox::question(this,
-	                                              tr("Save tileset"),
-	                                              tr("%1 already exists. Do you want to replace it?").arg(_output)))
-		return;
-	if (!info.dir().exists()) {
-		QMessageBox::critical(this, tr("Save Error"), tr("Output directory \"%1\" does not exists.").arg(info.dir().path()));
-		return;
+	QMessageBox ask_overwrite(QMessageBox::Question,
+	                          tr("Save tileset"), "",
+	                          QMessageBox::Yes | QMessageBox::No |
+	                          QMessageBox::YesToAll | QMessageBox::NoToAll,
+	                          this);
+	std::vector<QString> status(_tilesets.size());
+	bool all_saved = true;
+	enum class Overwrite {
+		Ask,
+		YesToAll,
+		NoToAll,
+	} overwrite;
+	auto get_overwrite = [&overwrite, &ask_overwrite] (const QString &output) {
+		switch (overwrite) {
+		case Overwrite::Ask: {
+			ask_overwrite.setText(tr("%1 already exists. "
+			                         "Do you want to replace it?")
+			                      .arg(output));
+			auto answer = static_cast<QMessageBox::StandardButton>(ask_overwrite.exec());
+			switch (answer) {
+			case QMessageBox::YesToAll:
+				overwrite = Overwrite::YesToAll;
+				Q_FALLTHROUGH();
+			case QMessageBox::Yes:
+				return true;
+			case QMessageBox::NoToAll:
+				overwrite = Overwrite::NoToAll;
+				Q_FALLTHROUGH();
+			case QMessageBox::No:
+			default:
+				return false;
+			}
+		}
+		case Overwrite::YesToAll:
+			return true;
+		case Overwrite::NoToAll:
+			return false;
+		}
+		Q_UNREACHABLE();
+	};
+	for (unsigned int i = 0; i < _tilesets.size(); ++i) {
+		auto output = _tilesets[i]->output();
+		QFileInfo info(output);
+		if (info.exists() && !get_overwrite(output)) {
+			status[i] = tr("ignored because file already exists");
+			all_saved = false;
+			continue;
+		}
+		if (!info.dir().exists()) {
+			status[i] = tr("output directory does not exists");
+			all_saved = false;
+			continue;
+		}
+		if (!_tilesets[i]->tileset().save(output)) {
+			status[i] = tr("failed to save tileset");
+			all_saved = false;
+		}
+		else
+			status[i] = tr("success");
 	}
-	if (!_tileset->tileset().save(_output))
-		QMessageBox::critical(this, tr("Save Error"), tr("Failed to save tileset."));
-	else
-		QMessageBox::information(this, tr("Tileset saved"), tr("The tileset was successfully saved to %1.").arg(_output));
-}
-
-void MainWindow::on_save_as_action_triggered()
-{
-	if (!_tileset)
-		return;
-	QFileDialog dialog(this, tr("Save tileset"));
-	dialog.setAcceptMode(QFileDialog::AcceptSave);
-	dialog.setFileMode(QFileDialog::AnyFile);
-	dialog.setNameFilters({tr("Portable Network Graphics (*.png)"),
-	                       tr("Any files (*)")});
-	if (dialog.exec()) {
-		auto output = dialog.selectedFiles().front();
-		if (!_tileset->tileset().save(output))
-			QMessageBox::critical(this, tr("Save Error"), tr("Failed to save tileset."));
+	QMessageBox results(this);
+	results.setIcon(all_saved ? QMessageBox::Information : QMessageBox::Warning);
+	results.setWindowTitle(tr("Save tileset"));
+	results.setText(all_saved
+	                ? tr("All tilesets were successfully saved.")
+	                : tr("One or more tileset could not be saved."));
+	QStringList status_strings;
+	for (unsigned int i = 0; i < _tilesets.size(); ++i) {
+		status_strings.push_back(tr("%1: %2.")
+		                         .arg(_tilesets[i]->output())
+		                         .arg(status[i]));
 	}
+	results.setDetailedText(status_strings.join('\n'));
+	results.exec();
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
