@@ -25,9 +25,13 @@ LayerComboBox::LayerComboBox(const Tileset::layer_t &layer, QWidget *parent)
 {
 	for (unsigned int i = 0; i < layer.alternatives.size(); ++i) {
 		const auto &alternative = layer.alternatives[i];
-		const auto &source = alternative.sources[alternative.icon_source].first;
-		auto tile_rect = TilemapInfo(*source).tileRect(alternative.icon_tile);
-		addItem(QIcon(source->copy(tile_rect)), alternative.name, i);
+		if (!alternative.sources.empty()) {
+			const auto &source = alternative.sources[alternative.icon_source].first;
+			auto tile_rect = TilemapInfo(*source).tileRect(alternative.icon_tile);
+			addItem(QIcon(source->copy(tile_rect)), alternative.name, i);
+		}
+		else
+			addItem(alternative.name, i);
 	}
 }
 
