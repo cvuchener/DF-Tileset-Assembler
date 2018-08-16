@@ -86,6 +86,34 @@ PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
 					_layers[layer_index].tiles.push_back(CP437::fromUnicode(c.unicode()));
 			}
 		}
+		else if (params[0] == "enumtiles") {
+			if (params.size() > 3)
+				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			unsigned int tileset = 0;
+			if (params.size() > 1) {
+				tileset = params[1].toUInt(&ok);
+				if (!ok || tileset >= _tilesets.size()) {
+					qCritical().noquote() << reader.formatError(tr("Invalid tileset index"));
+					continue;
+				}
+			}
+			unsigned int layer_index = 0;
+			if (params.size() > 2) {
+				layer_index = params[2].toUInt(&ok);
+				if (!ok) {
+					qCritical().noquote() << reader.formatError(tr("Invalid layer index"));
+					continue;
+				}
+			}
+			if (layer_index >= _layers.size())
+				_layers.resize(layer_index+1);
+			auto &tiles =  _layers[layer_index].tiles;
+			tiles.resize(_info.tileCount());
+			std::iota(tiles.begin(), tiles.end(), 0);
+			auto &sources = _layers[layer_index].source_tilesets;
+			sources.clear();
+			sources.resize(_info.tileCount(), tileset);
+		}
 		else if (params[0] == "foreground" || params[0] == "background") {
 			if (params.size() > 2)
 				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
