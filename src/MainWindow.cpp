@@ -82,8 +82,26 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	settings.endArray();
 
-	auto conf_widget = new ConfigurationWidget(settings, ptr_vec<Tileset>(_tilesets), central_widget);
-	layout->addWidget(conf_widget);
+	std::vector<ConfigurationWidget *> conf_widgets;
+	int conf_tab_count = settings.beginReadArray("configuration");
+	if (conf_tab_count == 1) {
+		settings.setArrayIndex(0);
+		auto conf_widget = new ConfigurationWidget(settings, ptr_vec<Tileset>(_tilesets), central_widget);
+		conf_widgets.push_back(conf_widget);
+		layout->addWidget(conf_widget);
+	}
+	else {
+		auto tabs = new QTabWidget(central_widget);
+		for (int i = 0; i < conf_tab_count; ++i) {
+			settings.setArrayIndex(i);
+			auto conf_widget = new ConfigurationWidget(settings, ptr_vec<Tileset>(_tilesets), central_widget);
+			conf_widgets.push_back(conf_widget);
+			tabs->addTab(conf_widget, settings.value("name", tr("Unnamed tab")).toString());
+		}
+		tabs->setTabPosition(QTabWidget::West);
+		layout->addWidget(tabs);
+	}
+	settings.endArray();
 
 	settings.beginGroup("colors");
 	int palette_count = settings.beginReadArray("palette");
@@ -136,8 +154,12 @@ MainWindow::MainWindow(QWidget *parent)
 		try {
 			auto preview = new PreviewWidget(ptr_vec<const Tileset>(_tilesets), &file, _palettes, _backgrounds, _outlines);
 			preview->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-			connect(conf_widget, &ConfigurationWidget::highlightTiles, preview, &PreviewWidget::setHighlight);
-			connect(conf_widget, &ConfigurationWidget::clearHighlightedTiles, preview, &PreviewWidget::clearHighlight);
+			for (auto conf_widget: conf_widgets) {
+				connect(conf_widget, &ConfigurationWidget::highlightTiles,
+				        preview, &PreviewWidget::setHighlight);
+				connect(conf_widget, &ConfigurationWidget::clearHighlightedTiles,
+				        preview, &PreviewWidget::clearHighlight);
+			}
 			tabs->addTab(preview, name);
 		}
 		catch (std::exception &e) {

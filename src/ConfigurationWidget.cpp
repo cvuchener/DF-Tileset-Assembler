@@ -33,7 +33,7 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset
         , _current_widget(nullptr)
 {
 	bool ok;
-	int config_size = s.beginReadArray("configuration");
+	int config_size = s.beginReadArray("item");
 	for (int i = 0; i < config_size; ++i) {
 		s.setArrayIndex(i);
 		auto name = s.value("name", tr("Unnamed setting")).toString();
