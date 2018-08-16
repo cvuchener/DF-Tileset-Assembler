@@ -323,7 +323,7 @@ void PreviewWidget::buildPreview()
 			auto dest_rect = _info.tileRect(i);
 			auto tileset_index = layer.source_tilesets[i];
 			auto tileset = _tilesets[tileset_index];
-			uint8_t tile = layer.tiles[i];
+			auto tile = layer.tiles[i];
 			if (layer_index > 0 && tileset_index == 0 && (tile == 0 || tile == ' '))
 				continue; // skip null or space tiles from upper layers
 			if (_use_colors)
@@ -354,11 +354,11 @@ void PreviewWidget::buildHighlight()
 		for (unsigned int layer_index = 0; layer_index < _layers.size(); ++layer_index) {
 			const auto &layer = _layers[layer_index];
 			for (unsigned int i = 0; i < _info.tileCount(); ++i) {
-				uint8_t tile = layer.tiles[i];
+				auto tile = layer.tiles[i];
 				unsigned int tileset_index = layer.source_tilesets[i];
 				if (layer_index > 0 && tileset_index == 0 && (tile == 0 || tile == ' '))
 					continue; // skip null or space tiles from upper layers
-				if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
+				if (_highlighted_tileset != tileset_index || !_highlighted_tiles->contains(tile))
 					continue;
 				painter.fillRect(_info.tileRect(i).translated(origin).marginsAdded(margins), color);
 			}

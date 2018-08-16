@@ -22,28 +22,35 @@
 
 TileSubset::TileSubset()
 {
-	std::fill(_tiles.begin(), _tiles.end(), false);
 }
 
-void TileSubset::set(uint8_t min, uint8_t max, bool value)
+void TileSubset::set(unsigned int min, unsigned int max, bool value)
 {
-	for (unsigned int i = min; i <= max; ++i)
-		_tiles[i] = value;
+	if (max >= _tiles.size())
+		_tiles.resize(max+1, false);
+	std::fill(_tiles.begin() + min, _tiles.begin() + (max+1), value);
 }
 
-const TileSubset::container_t &TileSubset::tiles() const
+bool TileSubset::contains(unsigned int tile) const
 {
-	return _tiles;
+	if (tile < _tiles.size())
+		return _tiles[tile];
+	return false;
 }
 
-static uint8_t read_tile(QStringRef str)
+unsigned int TileSubset::firstTile() const
+{
+	auto it = std::find(_tiles.begin(), _tiles.end(), true);
+	return static_cast<unsigned int>(std::distance(_tiles.begin(), it));
+}
+
+static unsigned int read_tile(QStringRef str)
 {
 	bool ok;
-	int tile = str.toInt(&ok, 0);
-	if (!ok || tile < std::numeric_limits<uint8_t>::min() ||
-	    tile > std::numeric_limits<uint8_t>::max())
+	auto tile = str.toUInt(&ok, 0);
+	if (!ok)
 		throw std::runtime_error("invalid tile number");
-	return static_cast<uint8_t>(tile);
+	return tile;
 }
 
 TileSubset TileSubset::fromString(const QString &str)
@@ -53,7 +60,7 @@ TileSubset TileSubset::fromString(const QString &str)
 	for (auto substr: str.splitRef(',')) {
 		int sep_index = substr.indexOf('-');
 		if (sep_index == -1) {
-			uint8_t tile = read_tile(substr);
+			auto tile = read_tile(substr);
 			subset.set(tile, tile);
 		}
 		else {

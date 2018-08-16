@@ -65,7 +65,7 @@ private:
 	const Palette *_palette;
 	TilemapInfo _info;
 	struct layer_t {
-		std::vector<uint8_t> tiles;
+		std::vector<unsigned int> tiles;
 		std::vector<unsigned int> source_tilesets;
 		std::vector<uint8_t> fg_colors;
 		std::vector<uint8_t> bg_colors;

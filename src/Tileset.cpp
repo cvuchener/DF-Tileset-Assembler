@@ -67,6 +67,8 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 
 	_info.setTileWidth(s.value("tile_width").toInt());
 	_info.setTileHeight(s.value("tile_height").toInt());
+	_info.setTilemapWidth(s.value("tileset_width", 16).toInt());
+	_info.setTilemapHeight(s.value("tileset_height", 16).toInt());
 
 	for (auto &tileset: _tileset)
 		tileset = QPixmap(_info.pixmapSize());
@@ -88,9 +90,7 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 		catch (std::exception &e) {
 			qCritical().noquote() << reader.formatError(tr("Invalid tile list: %1").arg(e.what()));
 		}
-		unsigned int first_tile = 0;
-		while (first_tile < 256 && !layer.tiles.tiles()[first_tile])
-			++first_tile;
+		unsigned int first_tile = layer.tiles.firstTile();
 		layer_t::alternative_t *alternative = nullptr;
 		while (reader) {
 			auto line = reader.nextLine();
@@ -245,15 +245,15 @@ void Tileset::buildTileset()
 		_tileset[i].fill(Qt::transparent);
 		painter.begin(&_tileset[i]);
 		for (const auto &layer: _layers) {
-			for (unsigned int tile = 0; tile < 256; ++tile) {
-				if (!layer.tiles.tiles()[tile])
+			for (unsigned int tile = 0; tile < _info.tileCount(); ++tile) {
+				if (!layer.tiles.contains(tile))
 					continue;
 				const auto &current = layer.alternatives[layer.current];
 				for (const auto &p: current.sources) {
 					const auto &source = (*p.first)[i];
 					if (source.isNull())
 						continue;
-					TilemapInfo source_info(source);
+					TilemapInfo source_info(source, _info.tilemapSize());
 					painter.setCompositionMode(p.second);
 					painter.drawPixmap(_info.tileRect(tile), source, source_info.tileRect(tile));
 				}

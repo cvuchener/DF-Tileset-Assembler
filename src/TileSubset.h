@@ -17,24 +17,23 @@
 #ifndef TILESUBSET_H
 #define TILESUBSET_H
 
-#include <array>
+#include <vector>
 #include <QString>
 
 class TileSubset
 {
 public:
-	using container_t = std::array<bool, 256>;
-
 	TileSubset();
 
-	void set(uint8_t min, uint8_t max, bool value = true);
+	void set(unsigned int min, unsigned int max, bool value = true);
 
-	const container_t &tiles() const;
+	bool contains(unsigned int tile) const;
+	unsigned int firstTile() const;
 
 	static TileSubset fromString(const QString &);
 
 private:
-	container_t _tiles;
+	std::vector<bool> _tiles;
 };
 
 #endif // TILESUBSET_H
