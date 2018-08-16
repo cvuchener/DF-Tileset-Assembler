@@ -27,6 +27,8 @@
 
 #include <QtDebug>
 
+constexpr int PreviewWidget::OutlineWidth;
+
 PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
                              QIODevice *preview_file,
                              const std::vector<std::pair<QString, Palette>> &palettes,
@@ -65,22 +67,44 @@ PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
 		auto line = reader.nextLine();
 		auto params = line.splitRef(':');
 		if (params[0] == "tiles") {
-			if (params.size() > 1)
+			if (params.size() > 2)
 				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			unsigned int layer_index = 0;
+			if (params.size() > 1) {
+				layer_index = params[1].toUInt(&ok);
+				if (!ok) {
+					qCritical().noquote() << reader.formatError(tr("Invalid layer index"));
+					continue;
+				}
+			}
+			if (layer_index >= _layers.size())
+				_layers.resize(layer_index+1);
 			for (int i = 0; i < _info.tilemapHeight(); ++i) {
 				auto line = reader.nextLine();
-				line.resize(_info.tilemapWidth());
+				line.resize(_info.tilemapWidth(), ' ');
 				for (auto c: line)
-					_tiles.push_back(CP437::fromUnicode(c.unicode()));
+					_layers[layer_index].tiles.push_back(CP437::fromUnicode(c.unicode()));
 			}
 		}
 		else if (params[0] == "foreground" || params[0] == "background") {
-			if (params.size() > 1)
+			if (params.size() > 2)
 				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
-			auto &colors = line == "foreground" ? _fg_colors : _bg_colors;
+			unsigned int layer_index = 0;
+			if (params.size() > 1) {
+				layer_index = params[1].toUInt(&ok);
+				if (!ok) {
+					qCritical().noquote() << reader.formatError(tr("Invalid layer index"));
+					continue;
+				}
+			}
+			if (layer_index >= _layers.size())
+				_layers.resize(layer_index+1);
+			auto &colors = params[0] == "foreground"
+			               ? _layers[layer_index].fg_colors
+			               : _layers[layer_index].bg_colors;
 			for (int i = 0; i < _info.tilemapHeight(); ++i) {
 				auto line = reader.nextLine();
-				line.resize(_info.tilemapWidth());
+				line.resize(_info.tilemapWidth(), '0');
 				for (auto c: line) {
 					auto code = c.unicode();
 					uint8_t color = 0;
@@ -99,11 +123,21 @@ PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
 			}
 		}
 		else if (params[0] == "tilesets") {
-			if (params.size() > 1)
+			if (params.size() > 2)
 				qWarning().noquote() << reader.formatError(tr("Unused extras parameters"));
+			unsigned int layer_index = 0;
+			if (params.size() > 1) {
+				layer_index = params[1].toUInt(&ok);
+				if (!ok) {
+					qCritical().noquote() << reader.formatError(tr("Invalid layer index"));
+					continue;
+				}
+			}
+			if (layer_index >= _layers.size())
+				_layers.resize(layer_index+1);
 			for (int i = 0; i < _info.tilemapHeight(); ++i) {
 				auto line = reader.nextLine();
-				line.resize(_info.tilemapWidth());
+				line.resize(_info.tilemapWidth(), '0');
 				for (auto c: line) {
 					auto code = c.unicode();
 					unsigned int index = 0;
@@ -121,7 +155,7 @@ PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
 						qCritical().noquote() << reader.formatError(tr("Tileset index too high"));
 						continue;
 					}
-					_source_tilesets.push_back(index);
+					_layers[layer_index].source_tilesets.push_back(index);
 				}
 			}
 		}
@@ -176,10 +210,12 @@ PreviewWidget::PreviewWidget(const std::vector<const Tileset *> &tilesets,
 			continue;
 		}
 	}
-	_tiles.resize(tile_count, 0);
-	_source_tilesets.resize(tile_count, 0);
-	_fg_colors.resize(tile_count, 15);
-	_bg_colors.resize(tile_count, 0);
+	for (auto &layer: _layers) {
+		layer.tiles.resize(tile_count, 0);
+		layer.source_tilesets.resize(tile_count, 0);
+		layer.fg_colors.resize(tile_count, 15);
+		layer.bg_colors.resize(tile_count, 0);
+	}
 
 	// Setup context menu
 	auto context_menu = new QMenu(this);
@@ -234,7 +270,7 @@ PreviewWidget::~PreviewWidget()
 
 QSize PreviewWidget::sizeHint() const
 {
-	return _info.pixmapSize() + QSize(2, 2); // reserve space for borders
+	return _info.pixmapSize() + QSize(OutlineWidth*2, OutlineWidth*2); // reserve space for borders
 }
 
 void PreviewWidget::setHighlight(unsigned int tileset_index, const TileSubset &subset)
@@ -281,17 +317,23 @@ void PreviewWidget::buildPreview()
 	_preview = QPixmap(_info.pixmapSize());
 	_preview.fill(Qt::transparent);
 	QPainter painter(&_preview);
-	for (unsigned int i = 0; i < _info.tileCount(); ++i) {
-		auto dest_rect = _info.tileRect(i);
-		auto tileset = _tilesets[_source_tilesets[i]];
-		uint8_t tile = _tiles[i];
-		if (_use_colors)
-			tileset->render(painter, dest_rect, tile,
-			                _palette->colors[_fg_colors[i]],
-			                _palette->colors[_bg_colors[i]]);
-		else
-			tileset->render(painter, dest_rect, tile);
+	for (unsigned int layer_index = 0; layer_index < _layers.size(); ++layer_index) {
+		const auto &layer = _layers[layer_index];
+		for (unsigned int i = 0; i < _info.tileCount(); ++i) {
+			auto dest_rect = _info.tileRect(i);
+			auto tileset_index = layer.source_tilesets[i];
+			auto tileset = _tilesets[tileset_index];
+			uint8_t tile = layer.tiles[i];
+			if (layer_index > 0 && tileset_index == 0 && (tile == 0 || tile == ' '))
+				continue; // skip null or space tiles from upper layers
+			if (_use_colors)
+				tileset->render(painter, dest_rect, tile,
+				                _palette->colors[layer.fg_colors[i]],
+				                _palette->colors[layer.bg_colors[i]]);
+			else
+				tileset->render(painter, dest_rect, tile);
 
+		}
 	}
 	update();
 }
@@ -299,25 +341,27 @@ void PreviewWidget::buildHighlight()
 {
 	if (!_highlighted_tiles)
 		return;
-	_highlight = QPixmap(_info.pixmapSize() + QSize(2, 2));
+	_highlight = QPixmap(_info.pixmapSize() + QSize(OutlineWidth*2, OutlineWidth*2));
 	_highlight.fill(Qt::transparent);
-	{
-		const QPoint origin(1, 1);
-		QPainter painter(&_highlight);
-		for (unsigned int i = 0; i < _info.tileCount(); ++i) {
-			uint8_t tile = _tiles[i];
-			unsigned int tileset_index = _source_tilesets[i];
-			if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
-				continue;
-			painter.fillRect(_info.tileRect(i).translated(origin).marginsAdded(QMargins(1, 1, 1, 1)), _outline);
-		}
-		painter.setCompositionMode(QPainter::CompositionMode_Clear);
-		for (unsigned int i = 0; i < _info.tileCount(); ++i) {
-			uint8_t tile = _tiles[i];
-			unsigned int tileset_index = _source_tilesets[i];
-			if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
-				continue;
-			painter.fillRect(_info.tileRect(i).translated(origin), Qt::transparent);
+	QPainter painter(&_highlight);
+	painter.setCompositionMode(QPainter::CompositionMode_Source);
+	QPoint origin(OutlineWidth, OutlineWidth);
+	for (const auto &t: {std::make_tuple(OutlineWidth, _outline), std::make_tuple(0, QColor(Qt::transparent))}) {
+		// outline is drawn with a transparent rectangle drawn on top of a bigger colored one.
+		int w = std::get<0>(t);
+		auto color = std::get<1>(t);
+		QMargins margins(w, w, w, w);
+		for (unsigned int layer_index = 0; layer_index < _layers.size(); ++layer_index) {
+			const auto &layer = _layers[layer_index];
+			for (unsigned int i = 0; i < _info.tileCount(); ++i) {
+				uint8_t tile = layer.tiles[i];
+				unsigned int tileset_index = layer.source_tilesets[i];
+				if (layer_index > 0 && tileset_index == 0 && (tile == 0 || tile == ' '))
+					continue; // skip null or space tiles from upper layers
+				if (_highlighted_tileset != tileset_index || !_highlighted_tiles->tiles()[tile])
+					continue;
+				painter.fillRect(_info.tileRect(i).translated(origin).marginsAdded(margins), color);
+			}
 		}
 	}
 	update();

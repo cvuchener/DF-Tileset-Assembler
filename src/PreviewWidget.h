@@ -33,6 +33,8 @@ class PreviewWidget : public QWidget
 {
 	Q_OBJECT
 public:
+	static constexpr int OutlineWidth = 2;
+
 	explicit PreviewWidget(const std::vector<const Tileset *> &tilesets,
 	                       QIODevice *preview_file,
 	                       const std::vector<std::pair<QString, Palette>> &palettes,
@@ -62,10 +64,13 @@ private:
 	bool _use_colors;
 	const Palette *_palette;
 	TilemapInfo _info;
-	std::vector<uint8_t> _tiles;
-	std::vector<unsigned int> _source_tilesets;
-	std::vector<uint8_t> _fg_colors;
-	std::vector<uint8_t> _bg_colors;
+	struct layer_t {
+		std::vector<uint8_t> tiles;
+		std::vector<unsigned int> source_tilesets;
+		std::vector<uint8_t> fg_colors;
+		std::vector<uint8_t> bg_colors;
+	};
+	std::vector<layer_t> _layers;
 	unsigned int _highlighted_tileset;
 	std::unique_ptr<TileSubset> _highlighted_tiles;
 	QPixmap _preview;
