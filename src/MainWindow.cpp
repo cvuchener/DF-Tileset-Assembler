@@ -164,13 +164,12 @@ void MainWindow::on_save_action_triggered()
 	                          QMessageBox::Yes | QMessageBox::No |
 	                          QMessageBox::YesToAll | QMessageBox::NoToAll,
 	                          this);
-	std::vector<QString> status(_tilesets.size());
 	bool all_saved = true;
 	enum class Overwrite {
 		Ask,
 		YesToAll,
 		NoToAll,
-	} overwrite;
+	} overwrite = Overwrite::Ask;
 	auto get_overwrite = [&overwrite, &ask_overwrite] (const QString &output) {
 		switch (overwrite) {
 		case Overwrite::Ask: {
@@ -199,8 +198,15 @@ void MainWindow::on_save_action_triggered()
 		}
 		Q_UNREACHABLE();
 	};
-	for (unsigned int i = 0; i < _tilesets.size(); ++i) {
-		auto output = _tilesets[i]->output();
+	std::vector<std::pair<QString, const QPixmap *>> files; // tileset, layer, filename
+	for (const auto &tileset: _tilesets) {
+		auto outputs = tileset->outputs();
+		for (unsigned int i = 0; i < outputs.size(); ++i)
+			files.emplace_back(outputs[i], &tileset->pixmap(i));
+	}
+	std::vector<QString> status(files.size());
+	for (unsigned int i = 0; i < files.size(); ++i) {
+		const auto &output = files[i].first;
 		QFileInfo info(output);
 		if (info.exists() && !get_overwrite(output)) {
 			status[i] = tr("ignored because file already exists");
@@ -212,7 +218,7 @@ void MainWindow::on_save_action_triggered()
 			all_saved = false;
 			continue;
 		}
-		if (!_tilesets[i]->tileset().save(output)) {
+		if (!files[i].second->save(output)) {
 			status[i] = tr("failed to save tileset");
 			all_saved = false;
 		}
@@ -226,9 +232,9 @@ void MainWindow::on_save_action_triggered()
 	                ? tr("All tilesets were successfully saved.")
 	                : tr("One or more tileset could not be saved."));
 	QStringList status_strings;
-	for (unsigned int i = 0; i < _tilesets.size(); ++i) {
+	for (unsigned int i = 0; i < files.size(); ++i) {
 		status_strings.push_back(tr("%1: %2.")
-		                         .arg(_tilesets[i]->output())
+		                         .arg(files[i].first)
 		                         .arg(status[i]));
 	}
 	results.setDetailedText(status_strings.join('\n'));

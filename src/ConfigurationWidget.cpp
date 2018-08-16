@@ -16,11 +16,12 @@
  */
 #include "ConfigurationWidget.h"
 
+#include <QComboBox>
 #include <QFormLayout>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QSettings>
 
-#include "LayerComboBox.h"
 #include "Tileset.h"
 #include "TileSubset.h"
 
@@ -29,6 +30,7 @@
 ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset *> &tilesets, QWidget *parent)
         : QWidget(parent)
         , _layout(new QFormLayout(this))
+        , _current_widget(nullptr)
 {
 	bool ok;
 	int config_size = s.beginReadArray("configuration");
@@ -48,13 +50,21 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset
 		}
 		const auto &layer = tileset->layers()[layer_index];
 		auto label = new QLabel(name, this);
-		auto combobox = new LayerComboBox(layer, this);
-		connect(combobox, &LayerComboBox::mouseEnter, [this, tileset_index, &layer] () {
-			emit highlightTiles(tileset_index, layer.tiles);
-		});
-		connect(combobox, &LayerComboBox::mouseLeave, [this] () {
-			emit clearHighlightedTiles();
-		});
+		auto combobox = new QComboBox(this);
+		for (unsigned int i = 0; i < layer.alternatives.size(); ++i) {
+			const auto &alternative = layer.alternatives[i];
+			auto icon = tileset->renderAlternativeIcon(alternative);
+			if (icon.isNull())
+				combobox->addItem(alternative.name, i);
+			else
+				combobox->addItem(QIcon(icon), alternative.name, i);
+		}
+		for (auto widget: { static_cast<QWidget *>(label), static_cast<QWidget *>(combobox) }) {
+			widget->setMouseTracking(true);
+			_highlights.emplace(std::piecewise_construct,
+			                    std::forward_as_tuple(widget),
+			                    std::forward_as_tuple(tileset_index, layer.tiles));
+		}
 		connect(combobox, qOverload<int>(&QComboBox::currentIndexChanged), [tileset, layer_index] (int index) {
 			if (index >= 0)
 				tileset->selectAlternative(layer_index, static_cast<unsigned>(index));
@@ -64,4 +74,23 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset
 	s.endArray();
 
 	setLayout(_layout);
+
+	setMouseTracking(true);
+}
+
+void ConfigurationWidget::mouseMoveEvent(QMouseEvent *event)
+{
+	QWidget::mouseMoveEvent(event);
+
+	auto pos = event->localPos();
+	auto widget = childAt(static_cast<int>(pos.x()), static_cast<int>(pos.y()));
+	if (widget == _current_widget)
+		return;
+	else
+		_current_widget = widget;
+	auto it = _highlights.find(widget);
+	if (it != _highlights.end())
+		emit highlightTiles(it->second.first, it->second.second);
+	else
+		emit clearHighlightedTiles();
 }

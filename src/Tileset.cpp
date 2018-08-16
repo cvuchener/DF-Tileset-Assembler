@@ -56,9 +56,21 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 	_output = s.value("output").toString();
 	if (_output.isEmpty())
 		qCritical().noquote() << tr("Missing output path in %1").arg(s.group());
+
+	auto mode = s.value("mode", "Normal").toString();
+	if (mode == "Normal")
+		_mode = Mode::Normal;
+	else if (mode == "TWBT")
+		_mode = Mode::TWBT;
+	else
+		qCritical().noquote() << tr("Invalid tileset mode in %1").arg(s.group());
+
 	_info.setTileWidth(s.value("tile_width").toInt());
 	_info.setTileHeight(s.value("tile_height").toInt());
-	_tileset = QPixmap(_info.pixmapSize());
+
+	for (auto &tileset: _tileset)
+		tileset = QPixmap(_info.pixmapSize());
+
 	auto layer_count = static_cast<unsigned int>(s.beginReadArray("layers"));
 	_layers.resize(layer_count);
 	for (unsigned int i = 0; i < layer_count; ++i) {
@@ -96,13 +108,6 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 					continue;
 				}
 				auto filename = params.value(1);
-				auto it = _input_tiles.lower_bound(filename);
-				if (it == _input_tiles.end() || it->first != filename) {
-					qDebug().noquote() << tr("Loading %1").arg(filename);
-					it = _input_tiles.emplace_hint(it, filename.toString(), QPixmap());
-					if (!it->second.load(filename.toString()))
-						qCritical().noquote() << reader.formatError(tr("Cannot load source image from %1.").arg(filename));
-				}
 				auto mode = QPainter::CompositionMode_Source;
 				if (params.count() >= 3) {
 					auto mode_it = Modes.find(params[2]);
@@ -111,7 +116,7 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 					else
 						mode = mode_it->second;
 				}
-				alternative->sources.emplace_back(&it->second, mode);
+				alternative->sources.emplace_back(loadSourceTileset(filename.toString()), mode);
 			}
 			else if (params[0] == "icon") {
 				if (!alternative) {
@@ -146,6 +151,11 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 	buildTileset();
 }
 
+Tileset::Mode Tileset::mode() const
+{
+	return _mode;
+}
+
 const std::vector<Tileset::layer_t> &Tileset::layers() const
 {
 	return _layers;
@@ -162,9 +172,10 @@ void Tileset::selectAlternative(unsigned int layer_index, unsigned int alternati
 	buildTileset();
 }
 
-const QPixmap &Tileset::tileset() const
+const QPixmap &Tileset::pixmap(unsigned int layer) const
 {
-	return _tileset;
+	assert(layer < PixmapCount);
+	return _tileset[layer];
 }
 
 const TilemapInfo &Tileset::tilesetInfo() const
@@ -172,28 +183,147 @@ const TilemapInfo &Tileset::tilesetInfo() const
 	return _info;
 }
 
-const QString &Tileset::output() const
+std::vector<QString> Tileset::outputs() const
 {
-	return _output;
+	switch (_mode) {
+	case Mode::Normal:
+		return { _output };
+	case Mode::TWBT:
+		return {
+			TWBTFileName(_output, TWBTNormal),
+			TWBTFileName(_output, TWBTBackground),
+			TWBTFileName(_output, TWBTTop),
+		};
+	}
+	Q_UNREACHABLE();
+}
+
+QString Tileset::TWBTFileName(QString name, Tileset::TWBTLayer layer)
+{
+	if (layer != TWBTNormal) {
+		auto index = name.lastIndexOf('.');
+		if (layer == TWBTBackground)
+			name.insert(index, "-bg");
+		else if (layer == TWBTTop)
+			name.insert(index, "-top");
+	}
+	return name;
+}
+
+const Tileset::source_t *Tileset::loadSourceTileset(const QString &name)
+{
+	auto it = _sources.lower_bound(name);
+	if (it == _sources.end() || it->first != name) {
+		it = _sources.emplace_hint(it, std::piecewise_construct,
+		                           std::forward_as_tuple(name),
+		                           std::forward_as_tuple());
+		std::vector<QString> filenames;
+		switch (_mode) {
+		case Mode::Normal:
+			filenames.push_back(name);
+			break;
+		case Mode::TWBT:
+			filenames.push_back(TWBTFileName(name, TWBTNormal));
+			filenames.push_back(TWBTFileName(name, TWBTBackground));
+			filenames.push_back(TWBTFileName(name, TWBTTop));
+			break;
+		}
+		for (unsigned int i = 0; i < filenames.size(); ++i) {
+			const auto &filename = filenames[i];
+			qDebug().noquote() << tr("Loading %1").arg(filename);
+			if (!it->second[i].load(filename))
+				qCritical().noquote() << tr("Failed to load source image from %1.").arg(filename);
+		}
+	}
+	return &it->second;
 }
 
 void Tileset::buildTileset()
 {
 	QPainter painter;
-	_tileset.fill(Qt::transparent);
-	painter.begin(&_tileset);
-	for (const auto &layer: _layers) {
-		for (unsigned int i = 0; i < 256; ++i) {
-			if (!layer.tiles.tiles()[i])
-				continue;
-			const auto &current = layer.alternatives[layer.current];
-			for (const auto &p: current.sources) {
-				TilemapInfo source_info(*p.first);
-				painter.setCompositionMode(p.second);
-				painter.drawPixmap(_info.tileRect(i), *p.first, source_info.tileRect(i));
+	for (unsigned int i = 0; i < PixmapCount; ++i) {
+		_tileset[i].fill(Qt::transparent);
+		painter.begin(&_tileset[i]);
+		for (const auto &layer: _layers) {
+			for (unsigned int tile = 0; tile < 256; ++tile) {
+				if (!layer.tiles.tiles()[tile])
+					continue;
+				const auto &current = layer.alternatives[layer.current];
+				for (const auto &p: current.sources) {
+					const auto &source = (*p.first)[i];
+					if (source.isNull())
+						continue;
+					TilemapInfo source_info(source);
+					painter.setCompositionMode(p.second);
+					painter.drawPixmap(_info.tileRect(tile), source, source_info.tileRect(tile));
+				}
 			}
 		}
+		painter.end();
 	}
-	painter.end();
 	emit tilesetUpdated();
+}
+
+void Tileset::normal_render(QPainter &p, const QRect &dest,
+                            const std::array<QPixmap, PixmapCount> &pixmaps,
+                            unsigned int tile) const
+{
+	auto src_rect = _info.tileRect(tile);
+	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	p.drawPixmap(dest, pixmaps[0], src_rect);
+}
+
+void Tileset::normal_render(QPainter &p, const QRect &dest,
+                            const std::array<QPixmap, PixmapCount> &pixmaps,
+                            unsigned int tile,
+                            const QColor &foreground, const QColor &background) const
+{
+	const auto &pixmap = pixmaps[0];
+	auto src_rect = _info.tileRect(tile);
+	p.setCompositionMode(QPainter::CompositionMode_Source);
+	p.drawPixmap(dest, pixmap, src_rect);
+	p.setCompositionMode(QPainter::CompositionMode_Multiply);
+	p.fillRect(dest, foreground);
+	p.setCompositionMode(QPainter::CompositionMode_DestinationIn); // multiply has overwritten alpha channel?
+	p.drawPixmap(dest, pixmap, src_rect);
+	p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
+	p.fillRect(dest, background);
+}
+
+void Tileset::twbt_render(QPainter &p, const QRect &dest,
+                          const std::array<QPixmap, PixmapCount> &pixmaps,
+                          unsigned int tile) const
+{
+	auto src_rect = _info.tileRect(tile);
+	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	for (auto layer: { TWBTBackground, TWBTNormal, TWBTTop }) {
+		p.drawPixmap(dest, pixmaps[layer], src_rect);
+	}
+}
+
+void Tileset::twbt_render(QPainter &p, const QRect &dest,
+                          const std::array<QPixmap, PixmapCount> &pixmaps,
+                          unsigned int tile,
+                          const QColor &foreground, const QColor &background) const
+{
+	QPainter temp_painter;
+	QPixmap temp_pixmap(dest.size());
+	temp_pixmap.fill(Qt::transparent);
+	QRect rect = temp_pixmap.rect();
+	auto src_rect = _info.tileRect(tile);
+	for (const auto &t: { std::make_tuple(TWBTBackground, background),
+	                      std::make_tuple(TWBTNormal, foreground)}) {
+		const auto &pixmap = pixmaps[std::get<0>(t)];
+		temp_painter.begin(&temp_pixmap);
+		temp_painter.setCompositionMode(QPainter::CompositionMode_Source);
+		temp_painter.drawPixmap(rect, pixmap, src_rect);
+		temp_painter.setCompositionMode(QPainter::CompositionMode_Multiply);
+		temp_painter.fillRect(rect, std::get<1>(t));
+		temp_painter.setCompositionMode(QPainter::CompositionMode_DestinationIn); // multiply has overwritten alpha channel?
+		temp_painter.drawPixmap(rect, pixmap, src_rect);
+		temp_painter.end();
+		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		p.drawPixmap(dest, temp_pixmap, rect);
+	}
+	p.drawPixmap(dest, pixmaps[TWBTTop], src_rect);
 }

@@ -282,25 +282,16 @@ void PreviewWidget::buildPreview()
 	_preview.fill(Qt::transparent);
 	QPainter painter(&_preview);
 	for (unsigned int i = 0; i < _info.tileCount(); ++i) {
-		const auto &tileset = _tilesets[_source_tilesets[i]]->tileset();
-		TilemapInfo tileset_info(tileset);
-		uint8_t tile = _tiles[i];
-		auto src_rect = tileset_info.tileRect(tile);
 		auto dest_rect = _info.tileRect(i);
-		if (_use_colors) {
-			painter.setCompositionMode(QPainter::CompositionMode_Source);
-			painter.drawPixmap(dest_rect, tileset, src_rect);
-			painter.setCompositionMode(QPainter::CompositionMode_Multiply);
-			painter.fillRect(dest_rect, _palette->colors[_fg_colors[i]]);
-			painter.setCompositionMode(QPainter::CompositionMode_DestinationIn); // multiply has overwritten alpha channel?
-			painter.drawPixmap(dest_rect, tileset, src_rect);
-			painter.setCompositionMode(QPainter::CompositionMode_DestinationOver);
-			painter.fillRect(dest_rect, _palette->colors[_bg_colors[i]]);
-		}
-		else {
-			painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-			painter.drawPixmap(dest_rect, tileset, src_rect);
-		}
+		auto tileset = _tilesets[_source_tilesets[i]];
+		uint8_t tile = _tiles[i];
+		if (_use_colors)
+			tileset->render(painter, dest_rect, tile,
+			                _palette->colors[_fg_colors[i]],
+			                _palette->colors[_bg_colors[i]]);
+		else
+			tileset->render(painter, dest_rect, tile);
+
 	}
 	update();
 }

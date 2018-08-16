@@ -36,8 +36,13 @@ signals:
 
 public slots:
 
+protected:
+	void mouseMoveEvent(QMouseEvent *event) override;
+
 private:
 	QFormLayout *_layout;
+	const QWidget *_current_widget;
+	std::map<const QWidget *, std::pair<unsigned int, TileSubset>> _highlights;
 };
 
 #endif // CONFIGURATION_WIDGET_H

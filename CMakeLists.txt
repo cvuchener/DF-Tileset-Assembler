@@ -17,8 +17,6 @@ add_executable(Tileset-Assembler WIN32
 	src/CP437.h
 	src/FileLineReader.cpp
 	src/FileLineReader.h
-	src/LayerComboBox.cpp
-	src/LayerComboBox.h
 	src/LogWindow.cpp
 	src/LogWindow.h
 	src/LogWindow.ui
