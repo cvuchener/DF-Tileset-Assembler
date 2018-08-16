@@ -62,6 +62,8 @@ Tileset::Tileset(QSettings &s, QObject *parent)
 		_mode = Mode::Normal;
 	else if (mode == "TWBT")
 		_mode = Mode::TWBT;
+	else if (mode == "Creature")
+		_mode = Mode::Creature;
 	else
 		qCritical().noquote() << tr("Invalid tileset mode in %1").arg(s.group());
 
@@ -187,6 +189,7 @@ std::vector<QString> Tileset::outputs() const
 {
 	switch (_mode) {
 	case Mode::Normal:
+	case Mode::Creature:
 		return { _output };
 	case Mode::TWBT:
 		return {
@@ -220,6 +223,7 @@ const Tileset::source_t *Tileset::loadSourceTileset(const QString &name)
 		std::vector<QString> filenames;
 		switch (_mode) {
 		case Mode::Normal:
+		case Mode::Creature:
 			filenames.push_back(name);
 			break;
 		case Mode::TWBT:

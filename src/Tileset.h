@@ -39,6 +39,7 @@ public:
 	{
 		Normal,
 		TWBT, // use -bg and -top TWBT layers
+		Creature, // do not apply colors when rendering
 	};
 	Mode mode() const;
 
@@ -113,6 +114,9 @@ private:
 			return;
 		case Mode::TWBT:
 			twbt_render(painter, dest, pixmaps, tile, std::forward<Args>(args)...);
+			return;
+		case Mode::Creature:
+			normal_render(painter, dest, pixmaps, tile);
 			return;
 		}
 	}
