@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt5 REQUIRED Gui Widgets)
+find_package(Qt5 REQUIRED Gui Widgets Svg)
 find_package(Git)
 
 add_custom_target(GitVersion
@@ -52,7 +52,7 @@ add_executable(Tileset-Assembler WIN32
 	src/TileSubset.h
 	resources.qrc
 )
-target_link_libraries(Tileset-Assembler Qt5::Widgets)
+target_link_libraries(Tileset-Assembler Qt5::Widgets Qt5::Svg)
 add_dependencies(Tileset-Assembler GitVersion)
 target_include_directories(Tileset-Assembler PRIVATE ${CMAKE_BINARY_DIR}/src)
 
