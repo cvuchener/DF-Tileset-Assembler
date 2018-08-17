@@ -32,6 +32,7 @@
     <bool>false</bool>
    </attribute>
    <addaction name="save_action"/>
+   <addaction name="about_action"/>
    <addaction name="quit_action"/>
   </widget>
   <widget class="QStatusBar" name="status_bar"/>
@@ -63,6 +64,18 @@
    </property>
    <property name="text">
     <string>Quit</string>
+   </property>
+  </action>
+  <action name="about_action">
+   <property name="icon">
+    <iconset resource="../resources.qrc">
+     <normaloff>:/img/help-about</normaloff>:/img/help-about</iconset>
+   </property>
+   <property name="text">
+    <string>About</string>
+   </property>
+   <property name="toolTip">
+    <string>About</string>
    </property>
   </action>
  </widget>

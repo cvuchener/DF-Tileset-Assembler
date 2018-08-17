@@ -5,5 +5,6 @@
         <file alias="application-exit">img/Gnome-application-exit.svg</file>
         <file alias="document-save">img/Gnome-document-save.svg</file>
         <file alias="document-save-as">img/Gnome-document-save-as.svg</file>
+        <file alias="help-about">img/Gnome-help-about.svg</file>
     </qresource>
 </RCC>

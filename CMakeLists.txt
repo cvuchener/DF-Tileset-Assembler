@@ -9,8 +9,22 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt5 REQUIRED Gui Widgets)
+find_package(Git)
+
+add_custom_target(GitVersion
+	COMMAND ${CMAKE_COMMAND}
+	        -D GIT_FOUND=${GIT_FOUND}
+		-D GIT_EXECUTABLE=${GIT_EXECUTABLE}
+		-D DEFAULT_VERSION="no version"
+		-D INPUT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/Version.h.in
+		-D OUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/src/Version.h
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/generate_version.cmake
+)
 
 add_executable(Tileset-Assembler WIN32
+	src/AboutDialog.cpp
+	src/AboutDialog.h
+	src/AboutDialog.ui
 	src/ConfigurationWidget.cpp
 	src/ConfigurationWidget.h
 	src/CP437.cpp
@@ -39,6 +53,8 @@ add_executable(Tileset-Assembler WIN32
 	resources.qrc
 )
 target_link_libraries(Tileset-Assembler Qt5::Widgets)
+add_dependencies(Tileset-Assembler GitVersion)
+target_include_directories(Tileset-Assembler PRIVATE ${CMAKE_BINARY_DIR}/src)
 
 install(TARGETS Tileset-Assembler
 	RUNTIME DESTINATION /)

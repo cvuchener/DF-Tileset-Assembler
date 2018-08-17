@@ -23,6 +23,7 @@
 
 #include "Palette.h"
 
+class AboutDialog;
 class Tileset;
 
 class MainWindow : public QMainWindow, private Ui::MainWindow
@@ -34,6 +35,7 @@ public:
 
 public slots:
 	void on_save_action_triggered();
+	void on_about_action_triggered();
 
 protected:
 	void closeEvent(QCloseEvent *) override;
@@ -43,6 +45,7 @@ private:
 	std::vector<std::pair<QString, Palette>> _palettes;
 	std::vector<std::pair<QString, QColor>> _backgrounds;
 	std::vector<std::pair<QString, QColor>> _outlines;
+	std::unique_ptr<AboutDialog> _about_dialog;
 
 };
 

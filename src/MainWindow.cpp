@@ -15,6 +15,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "MainWindow.h"
+
+#include "AboutDialog.h"
 #include "LogWindow.h"
 
 #include <QFile>
@@ -46,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
 	setupUi(this);
 
+	// Setup Log status button
 	auto log_button = new QPushButton(this);
 	log_button->setHidden(true);
 	status_bar->addPermanentWidget(log_button);
@@ -72,9 +75,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 	auto layout = new QHBoxLayout(central_widget);
 
+	// Open settings
 	QSettings settings("./tileset-assembler.ini", QSettings::IniFormat);
 	setWindowTitle(settings.value("title", tr("Missing title")).toString());
 
+	// Create About dialog
+	_about_dialog = std::make_unique<AboutDialog>(settings, this);
+	_about_dialog->adjustSize();
+
+	// Create tilesets
 	auto tileset_count = settings.beginReadArray("tilesets");
 	for (int i = 0; i < tileset_count; ++i) {
 		settings.setArrayIndex(i);
@@ -82,6 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	settings.endArray();
 
+	// Create Configuration widgets
 	std::vector<ConfigurationWidget *> conf_widgets;
 	int conf_tab_count = settings.beginReadArray("configuration");
 	if (conf_tab_count == 1) {
@@ -103,6 +113,7 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	settings.endArray();
 
+	// Load palettes and colors
 	settings.beginGroup("colors");
 	int palette_count = settings.beginReadArray("palette");
 	for (int i = 0; i < palette_count; ++i) {
@@ -141,6 +152,7 @@ MainWindow::MainWindow(QWidget *parent)
 		_outlines.emplace_back(tr("Red"), Qt::red);
 	settings.endGroup();
 
+	// Create previews
 	auto tabs = new QTabWidget(central_widget);
 	int preview_count = settings.beginReadArray("previews");
 	for (int i = 0; i < preview_count; ++i) {
@@ -172,6 +184,7 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	settings.endArray();
 	layout->addWidget(tabs);
+
 	central_widget->setLayout(layout);
 }
 
@@ -261,6 +274,12 @@ void MainWindow::on_save_action_triggered()
 	}
 	results.setDetailedText(status_strings.join('\n'));
 	results.exec();
+}
+
+void MainWindow::on_about_action_triggered()
+{
+	if (_about_dialog)
+		_about_dialog->show();
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
