@@ -24,6 +24,7 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QMessageBox>
+#include <QScrollBar>
 #include <QTableWidget>
 
 #include <QtDebug>
@@ -102,10 +103,12 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	else {
 		auto tabs = new QTabWidget(central_widget);
+		tabs->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::MinimumExpanding);
 		for (int i = 0; i < conf_tab_count; ++i) {
 			settings.setArrayIndex(i);
 			auto conf_widget = new ConfigurationWidget(settings, ptr_vec<Tileset>(_tilesets), central_widget);
 			conf_widgets.push_back(conf_widget);
+			conf_widget->setFrameShape(QFrame::NoFrame);
 			tabs->addTab(conf_widget, settings.value("name", tr("Unnamed tab")).toString());
 		}
 		tabs->setTabPosition(QTabWidget::West);
@@ -154,6 +157,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 	// Create previews
 	auto tabs = new QTabWidget(central_widget);
+	tabs->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 	int preview_count = settings.beginReadArray("previews");
 	for (int i = 0; i < preview_count; ++i) {
 		settings.setArrayIndex(i);
@@ -164,6 +168,11 @@ MainWindow::MainWindow(QWidget *parent)
 			continue;
 		}
 		try {
+			auto scroll_area = new QScrollArea;
+			scroll_area->setWidgetResizable(true);
+			scroll_area->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+			scroll_area->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+			scroll_area->setFrameShape(QFrame::NoFrame);
 			auto preview = new PreviewWidget(ptr_vec<const Tileset>(_tilesets), &file, _palettes, _backgrounds, _outlines);
 			preview->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 			for (auto conf_widget: conf_widgets) {
@@ -172,7 +181,24 @@ MainWindow::MainWindow(QWidget *parent)
 				connect(conf_widget, &ConfigurationWidget::clearHighlightedTiles,
 				        preview, &PreviewWidget::clearHighlight);
 			}
-			tabs->addTab(preview, name);
+			scroll_area->setHorizontalScrollBarPolicy(preview->info().tilemapWidth() > 16
+			                                          ? Qt::ScrollBarAlwaysOn
+			                                          : Qt::ScrollBarAlwaysOff);
+			scroll_area->setVerticalScrollBarPolicy(preview->info().tilemapHeight() > 16
+			                                        ? Qt::ScrollBarAlwaysOn
+			                                        : Qt::ScrollBarAlwaysOff);
+			if (scroll_area->horizontalScrollBarPolicy() == Qt::ScrollBarAlwaysOff)
+				scroll_area->setMinimumWidth(preview->sizeHint().width() +
+				                             (scroll_area->verticalScrollBarPolicy() == Qt::ScrollBarAlwaysOff
+				                              ? 0
+				                              : scroll_area->verticalScrollBar()->width()));
+			if (scroll_area->verticalScrollBarPolicy() == Qt::ScrollBarAlwaysOff)
+				scroll_area->setMinimumHeight(preview->sizeHint().height() +
+				                              (scroll_area->horizontalScrollBarPolicy() == Qt::ScrollBarAlwaysOff
+				                               ? 0
+				                               : scroll_area->verticalScrollBar()->height()));
+			scroll_area->setWidget(preview);
+			tabs->addTab(scroll_area, name);
 		}
 		catch (std::exception &e) {
 			qCritical().noquote() << tr("Cannot create preview %1 from %2: %3")

@@ -301,6 +301,11 @@ QSize PreviewWidget::sizeHint() const
 	return _info.pixmapSize() + QSize(OutlineWidth*2, OutlineWidth*2); // reserve space for borders
 }
 
+const TilemapInfo &PreviewWidget::info() const
+{
+	return _info;
+}
+
 void PreviewWidget::setHighlight(unsigned int tileset_index, const TileSubset &subset)
 {
 	_highlighted_tileset = tileset_index;

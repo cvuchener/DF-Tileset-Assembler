@@ -20,6 +20,7 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QScrollBar>
 #include <QSettings>
 
 #include "Tileset.h"
@@ -28,10 +29,18 @@
 #include <QtDebug>
 
 ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset *> &tilesets, QWidget *parent)
-        : QWidget(parent)
+        : QScrollArea(parent)
         , _layout(new QFormLayout(this))
         , _current_widget(nullptr)
 {
+	setWidgetResizable(true);
+	setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+	setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Expanding);
+
+	auto widget = new QWidget(this);
+
 	bool ok;
 	int config_size = s.beginReadArray("item");
 	for (int i = 0; i < config_size; ++i) {
@@ -73,9 +82,11 @@ ConfigurationWidget::ConfigurationWidget(QSettings &s, const std::vector<Tileset
 	}
 	s.endArray();
 
-	setLayout(_layout);
-
+	widget->setLayout(_layout);
+	widget->setMouseTracking(true);
+	setWidget(widget);
 	setMouseTracking(true);
+	setMinimumWidth(widget->sizeHint().width() + verticalScrollBar()->width());
 }
 
 void ConfigurationWidget::mouseMoveEvent(QMouseEvent *event)

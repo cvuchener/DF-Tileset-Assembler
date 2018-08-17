@@ -45,6 +45,8 @@ public:
 
 	QSize sizeHint() const override;
 
+	const TilemapInfo &info() const;
+
 signals:
 
 public slots:

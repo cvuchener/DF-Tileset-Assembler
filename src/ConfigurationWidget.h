@@ -17,14 +17,14 @@
 #ifndef CONFIGURATION_WIDGET_H
 #define CONFIGURATION_WIDGET_H
 
-#include <QWidget>
+#include <QScrollArea>
 
 class QFormLayout;
 class QSettings;
 class Tileset;
 class TileSubset;
 
-class ConfigurationWidget: public QWidget
+class ConfigurationWidget: public QScrollArea
 {
 	Q_OBJECT
 public:
