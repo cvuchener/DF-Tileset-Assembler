@@ -44,7 +44,7 @@ static std::vector<T *> ptr_vec(const std::vector<std::unique_ptr<U>> &vec)
 	return out;
 }
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(const QString &config_path, QWidget *parent)
         : QMainWindow(parent)
 {
 	setupUi(this);
@@ -77,7 +77,7 @@ MainWindow::MainWindow(QWidget *parent)
 	auto layout = new QHBoxLayout(central_widget);
 
 	// Open settings
-	QSettings settings("./tileset-assembler.ini", QSettings::IniFormat);
+	QSettings settings(config_path, QSettings::IniFormat);
 	setWindowTitle(settings.value("title", tr("Missing title")).toString());
 
 	// Create About dialog

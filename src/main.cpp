@@ -16,15 +16,31 @@
  */
 #include "MainWindow.h"
 #include "LogWindow.h"
+#include "Version.h"
+
 #include <QApplication>
+#include <QCommandLineParser>
+
+#define DEFAULT_CONFIG_PATH "tileset-assembler.ini"
 
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
+	app.setApplicationName("Tileset-Assembler");
+	app.setApplicationDisplayName("Tileset Assembler");
+	app.setApplicationVersion(VERSION_STRING);
+
+	QCommandLineParser parser;
+	parser.addPositionalArgument("config_path",
+	                             QApplication::translate("main", "Path to the INI configuration file (default is \"%1\").").arg(DEFAULT_CONFIG_PATH),
+	                             "[config_path]");
+	parser.addVersionOption();
+	parser.addHelpOption();
+	parser.process(app);
 
 	qInstallMessageHandler(LogWindow::handleMessage);
 
-	MainWindow window;
+	MainWindow window(parser.positionalArguments().value(0, DEFAULT_CONFIG_PATH));
 	window.show();
 
 	return app.exec();

@@ -1,9 +1,8 @@
 #include "AboutDialog.h"
 
+#include <QApplication>
 #include <QSettings>
 #include <QUrl>
-
-#include "Version.h"
 
 AboutDialog::AboutDialog(QSettings &s, QWidget *parent)
         : QDialog(parent)
@@ -28,7 +27,7 @@ AboutDialog::AboutDialog(QSettings &s, QWidget *parent)
 		tileset_form_layout->addRow(new QLabel(tr("URL: ")), url_label);
 	}
 
-	version_value->setText(VERSION_STRING);
+	version_value->setText(QApplication::instance()->applicationVersion());
 	qt_version_value->setText(tr("%1 (build), %2 (runtime)")
 	                          .arg(QT_VERSION_STR)
 	                          .arg(qVersion()));
