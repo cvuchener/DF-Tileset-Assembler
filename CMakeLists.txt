@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5 REQUIRED Gui Widgets Svg)
 find_package(Git)
@@ -57,4 +58,4 @@ add_dependencies(Tileset-Assembler GitVersion)
 target_include_directories(Tileset-Assembler PRIVATE ${CMAKE_BINARY_DIR}/src)
 
 install(TARGETS Tileset-Assembler
-	RUNTIME DESTINATION /)
+	RUNTIME DESTINATION ".")
