@@ -21,6 +21,28 @@
 
 #include "FileLineReader.h"
 
+Palette::Palette()
+        : colors({
+                Qt::black,
+                Qt::darkBlue,
+                Qt::darkGreen,
+                Qt::darkCyan,
+                Qt::darkRed,
+                Qt::darkMagenta,
+                Qt::darkYellow,
+                Qt::lightGray,
+                Qt::darkGray,
+                Qt::blue,
+                Qt::green,
+                Qt::cyan,
+                Qt::red,
+                Qt::magenta,
+                Qt::yellow,
+                Qt::white,
+        })
+{
+}
+
 Palette::Palette(QIODevice *colors_file)
 {
 	static const std::map<QString, unsigned int, std::less<>> Colors = {

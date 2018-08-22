@@ -29,29 +29,12 @@ class Palette
 {
 	Q_DECLARE_TR_FUNCTIONS(Palette)
 public:
-	Palette() = default;
+	Palette();
 	Palette(QIODevice *colors);
 
 	QPixmap makePreview() const;
 
-	std::array<QColor, 16> colors = {
-	        Qt::black,
-	        Qt::darkBlue,
-	        Qt::darkGreen,
-	        Qt::darkCyan,
-	        Qt::darkRed,
-	        Qt::darkMagenta,
-	        Qt::darkYellow,
-	        Qt::lightGray,
-	        Qt::darkGray,
-	        Qt::blue,
-	        Qt::green,
-	        Qt::cyan,
-	        Qt::red,
-	        Qt::magenta,
-	        Qt::yellow,
-	        Qt::white,
-	};
+	std::array<QColor, 16> colors;
 };
 
 #endif // PALETTE_H
